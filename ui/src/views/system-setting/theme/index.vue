@@ -170,7 +170,7 @@
                         </div>
                       </div>
                       <div class="flex-center">
-                        <AppIcon
+                        <!-- <AppIcon
                           iconName="app-github"
                           class="cursor color-secondary mr-8 ml-8"
                           style="font-size: 20px"
@@ -187,7 +187,7 @@
                           class="cursor color-secondary ml-8"
                           style="font-size: 20px"
                           v-if="themeForm.showForum"
-                        ></AppIcon>
+                        ></AppIcon> -->
                       </div>
                     </div>
                   </div>
