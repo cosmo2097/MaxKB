@@ -55,7 +55,7 @@
         />
       </g>
     </svg>
-    <img v-else src="@/assets/logo/Media-logo.jpg" :height="height" />
+    <img v-else src="@/assets/logo/Media-logo.png" :height="height" />
   </template>
 </template>
 <script setup lang="ts">
