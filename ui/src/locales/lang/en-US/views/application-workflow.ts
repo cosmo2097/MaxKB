@@ -57,7 +57,7 @@ export default {
     NoReferencing: 'Referenced variable does not exist',
     placeholder: 'Please select a variable',
     inputPlaceholder: 'Please enter variable',
-        loop: 'Loop Variable',
+    loop: 'Loop Variable',
   },
   condition: {
     title: 'Execution Condition',
@@ -156,7 +156,7 @@ export default {
       result: 'Search Results',
       searchParam: 'Search Parameters',
       select_variable: 'Select Variable',
-      valueMessage: `Value or {name} `,
+      valueMessage: `Value or name `,
       showKnowledge: {
         label: 'Results are displayed in the knowledge source',
         requiredMessage: 'Please set parameters',
@@ -445,6 +445,7 @@ You are a master of problem optimization, adept at accurately inferring user int
       expression: {
         label: 'Expression',
         placeholder: 'Please enter expression',
+        tooltip: 'Please use JSON Path expressions to split variables, e.g.: $.store.book',
       },
     },
     parameterExtractionNode: {

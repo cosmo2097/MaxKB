@@ -157,7 +157,7 @@ export default {
       result: '檢索結果',
       searchParam: '檢索參數',
       select_variable: '選擇變數',
-      valueMessage: `值或{name}`,
+      valueMessage: `值或變量`,
       showKnowledge: {
         label: '結果顯示在知識來源',
         requiredMessage: '請設定參數',
@@ -431,6 +431,7 @@ export default {
       expression: {
         label: '表達式',
         placeholder: '請輸入表達式',
+        tooltip: '請使用JSON Path 表達式拆分變量，例如：$.store.book',
       },
     },
     parameterExtractionNode: {

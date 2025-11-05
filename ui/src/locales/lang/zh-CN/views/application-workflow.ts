@@ -163,7 +163,7 @@ export default {
       result: '检索结果',
       searchParam: '检索参数',
       select_variable: '选择变量',
-      valueMessage: `值或{name}`,
+      valueMessage: `值或变量`,
       showKnowledge: {
         label: '结果显示在知识来源中',
         requiredMessage: '请设置参数',
@@ -456,6 +456,7 @@ export default {
       expression: {
         label: '表达式',
         placeholder: '请输入表达式',
+        tooltip: '请使用JSON Path 表达式拆分变量，例如：$.store.book',
       },
     },
     parameterExtractionNode: {
