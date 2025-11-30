@@ -859,7 +859,8 @@ function sendChatHandle(event?: any) {
     navigator.userAgent,
   )
   // 如果是移动端，且按下回车键，不直接发送
-  if ((isMobile || mode === 'mobile') && event?.key === 'Enter') {
+  // if ((isMobile || mode === 'mobile') && event?.key === 'Enter') {
+  if ((isMobile) && event?.key === 'Enter') {
     // 阻止默认事件
     return
   }
