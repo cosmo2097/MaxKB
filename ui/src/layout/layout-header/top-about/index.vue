@@ -1,12 +1,12 @@
 <template>
   <div class="flex align-center">
-    <!-- <el-button round @click="toUrl('https://maxkb.cn/pricing.html')" class="pricing-button mr-8"
+    <el-button round @click="toUrl('https://zmedia.66wz.net')" class="pricing-button mr-8"
       v-hasPermission="EditionConst.IS_CE"
     >
       <AppIcon iconName="app-pricing" class="mr-8"></AppIcon>
-      {{ $t('common.upgrade') }}
+      NextMedia Lab
     </el-button>
-    <el-tooltip
+    <!-- <el-tooltip
       effect="dark"
       :content="$t('layout.github')"
       placement="top"
