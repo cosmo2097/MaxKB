@@ -97,6 +97,20 @@
                         v-if="knowledgeDetail?.type === 2 && permissionPrecise.doc_sync(id)"
                         >{{ $t('views.document.syncDocument') }}
                       </el-dropdown-item>
+                      <el-dropdown-item
+                        @click="exportMulDocument"
+                        :disabled="multipleSelection.length === 0"
+                        v-if="permissionPrecise.doc_export(id)"
+                      >
+                        {{ $t('views.document.setting.export') }} Excel
+                      </el-dropdown-item>
+                      <el-dropdown-item
+                        @click="exportMulDocumentZip"
+                        :disabled="multipleSelection.length === 0"
+                        v-if="permissionPrecise.doc_export(id)"
+                      >
+                        {{ $t('views.document.setting.export') }} Zip
+                      </el-dropdown-item>
 
                       <el-dropdown-item
                         divided
@@ -141,7 +155,7 @@
 
               <el-tooltip
                 effect="dark"
-                :content="$t('workflow.ExecutionRecord')"
+                :content="$t('common.ExecutionRecord.title')"
                 placement="top"
                 v-if="knowledgeDetail?.type === 4 && permissionPrecise.doc_create(id)"
               >
@@ -1121,6 +1135,34 @@ function syncLarkMulDocument() {
     .then(() => {
       MsgSuccess(t('views.document.sync.successMessage'))
       getList()
+    })
+}
+
+function exportMulDocument() {
+  const arr: string[] = []
+  multipleSelection.value.map((v) => {
+    if (v) {
+      arr.push(v.id)
+    }
+  })
+  loadSharedApi({ type: 'document', systemType: apiType.value })
+    .exportMulDocument(knowledgeDetail.value.name, id, arr, loading)
+    .then(() => {
+      MsgSuccess(t('common.exportSuccess'))
+    })
+}
+
+function exportMulDocumentZip() {
+  const arr: string[] = []
+  multipleSelection.value.map((v) => {
+    if (v) {
+      arr.push(v.id)
+    }
+  })
+  loadSharedApi({ type: 'document', systemType: apiType.value })
+    .exportMulDocumentZip(knowledgeDetail.value.name, id, arr, loading)
+    .then(() => {
+      MsgSuccess(t('common.exportSuccess'))
     })
 }
 
