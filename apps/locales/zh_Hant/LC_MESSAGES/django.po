@@ -9256,3 +9256,36 @@ msgstr "空間管理員"
 
 msgid "USER"
 msgstr "普通用戶"
+
+msgid "Generate share link"
+msgstr "產生分享連結"
+
+msgid "Chat record link"
+msgstr "聊天記錄連結"
+
+msgid "Get chat record by share link"
+msgstr "透過分享連結取得聊天記錄"
+
+msgid "Invalid chat record ids"
+msgstr "無效的聊天記錄ID"
+
+msgid "Share link does not exist"
+msgstr "分享連結不存在"
+
+msgid "Chat has been deleted"
+msgstr "聊天記錄已被刪除"
+
+msgid "cron type requires cron_expression field"
+msgstr "cron 類型需要 cron_expression 欄位"
+
+msgid "Invalid cron expression: %s"
+msgstr "Cron 表達式不合法：%s"
+
+msgid "Batch Remove Documents from Tag"
+msgstr "批量刪除標籤下的文件"
+
+msgid "Document does not belong to current knowledge"
+msgstr "文件不屬於當前知識庫"
+
+msgid "Move an application"
+msgstr "移動應用程序"
