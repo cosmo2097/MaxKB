@@ -191,6 +191,8 @@ class Operate(Enum):
     TRIGGER_EDIT = "READ+TRIGGER_EDIT"
     TRIGGER_CREATE = "READ+TRIGGER_CREATE"
     TRIGGER_DELETE = "READ+TRIGGER_DELETE"
+    BATCH_DELETE = "READ+BATCH_DELETE"
+    BATCH_MOVE = "READ+BATCH_MOVE"
 
 
 class RoleGroup(Enum):
@@ -376,6 +378,8 @@ Permission_Label = {
     Operate.TRIGGER_EDIT.value: _('Edit Trigger'),
     Operate.TRIGGER_DELETE.value: _('Delete Trigger'),
     Operate.RECORD.value: _('Read execute record'),
+    Operate.BATCH_DELETE.value: _('Batch delete'),
+    Operate.BATCH_MOVE.value: _('Batch move'),
 
     Group.APPLICATION_OVERVIEW.value: _('Overview'),
     Group.APPLICATION_ACCESS.value: _('Application Access'),
@@ -571,7 +575,16 @@ class PermissionConstants(Enum):
         parent_group=[WorkspaceGroup.TOOL, UserGroup.TOOL],
         resource_permission_group_list=[ResourcePermissionConst.TOOL_MANGE]
     )
-
+    TOOL_BATCH_MOVE = Permission(
+        group=Group.TOOL, operate=Operate.BATCH_MOVE, role_list=[RoleConstants.ADMIN, RoleConstants.USER],
+        parent_group=[WorkspaceGroup.TOOL, UserGroup.TOOL],
+        resource_permission_group_list=[ResourcePermissionConst.TOOL_MANGE]
+    )
+    TOOL_BATCH_DELETE = Permission(
+        group=Group.TOOL, operate=Operate.BATCH_DELETE, role_list=[RoleConstants.ADMIN, RoleConstants.USER],
+        parent_group=[WorkspaceGroup.TOOL, UserGroup.TOOL],
+        resource_permission_group_list=[ResourcePermissionConst.TOOL_MANGE]
+    )
     TOOL_EDIT = Permission(
         group=Group.TOOL, operate=Operate.EDIT, role_list=[RoleConstants.ADMIN, RoleConstants.USER],
         parent_group=[WorkspaceGroup.TOOL, UserGroup.TOOL],
@@ -694,6 +707,16 @@ class PermissionConstants(Enum):
         resource_permission_group_list=[ResourcePermissionConst.KNOWLEDGE_MANGE],
         parent_group=[WorkspaceGroup.KNOWLEDGE, UserGroup.KNOWLEDGE]
     )
+    KNOWLEDGE_BATCH_DELETE = Permission(group=Group.KNOWLEDGE, operate=Operate.BATCH_DELETE,
+                                    role_list=[RoleConstants.ADMIN, RoleConstants.USER],
+                                    resource_permission_group_list=[ResourcePermissionConst.KNOWLEDGE_MANGE],
+                                    parent_group=[WorkspaceGroup.KNOWLEDGE, UserGroup.KNOWLEDGE],
+                                    )
+    KNOWLEDGE_BATCH_MOVE = Permission(group=Group.KNOWLEDGE, operate=Operate.BATCH_MOVE,
+                                    role_list=[RoleConstants.ADMIN, RoleConstants.USER],
+                                    resource_permission_group_list=[ResourcePermissionConst.KNOWLEDGE_MANGE],
+                                    parent_group=[WorkspaceGroup.KNOWLEDGE, UserGroup.KNOWLEDGE],
+                                    )
     KNOWLEDGE_RESOURCE_AUTHORIZATION = Permission(
         group=Group.KNOWLEDGE, operate=Operate.AUTH, role_list=[RoleConstants.ADMIN, RoleConstants.USER],
         resource_permission_group_list=[ResourcePermissionConst.KNOWLEDGE_MANGE],
@@ -1027,6 +1050,16 @@ class PermissionConstants(Enum):
                                     resource_permission_group_list=[ResourcePermissionConst.APPLICATION_MANGE]
                                     )
     APPLICATION_EXPORT = Permission(group=Group.APPLICATION, operate=Operate.EXPORT,
+                                    role_list=[RoleConstants.ADMIN, RoleConstants.USER],
+                                    resource_permission_group_list=[ResourcePermissionConst.APPLICATION_MANGE],
+                                    parent_group=[WorkspaceGroup.APPLICATION, UserGroup.APPLICATION],
+                                    )
+    APPLICATION_BATCH_DELETE = Permission(group=Group.APPLICATION, operate=Operate.BATCH_DELETE,
+                                    role_list=[RoleConstants.ADMIN, RoleConstants.USER],
+                                    resource_permission_group_list=[ResourcePermissionConst.APPLICATION_MANGE],
+                                    parent_group=[WorkspaceGroup.APPLICATION, UserGroup.APPLICATION],
+                                    )
+    APPLICATION_BATCH_MOVE = Permission(group=Group.APPLICATION, operate=Operate.BATCH_MOVE,
                                     role_list=[RoleConstants.ADMIN, RoleConstants.USER],
                                     resource_permission_group_list=[ResourcePermissionConst.APPLICATION_MANGE],
                                     parent_group=[WorkspaceGroup.APPLICATION, UserGroup.APPLICATION],

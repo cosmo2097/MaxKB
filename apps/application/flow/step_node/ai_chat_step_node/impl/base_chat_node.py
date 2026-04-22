@@ -12,20 +12,22 @@ import time
 from functools import reduce
 from typing import List, Dict
 
+from django.db.models import QuerySet
+from django.utils.translation import gettext as _
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, SystemMessage
+
+from application.flow.common import WorkflowMode
 from application.flow.i_step_node import NodeResult, INode
 from application.flow.step_node.ai_chat_step_node.i_chat_node import IChatNode
-from application.flow.tools import Reasoning, mcp_response_generator
+from application.flow.tools import Reasoning, mcp_response_generator, get_tools
 from application.models import Application, ApplicationApiKey, ApplicationAccessToken
 from common.exception.app_exception import AppApiException
 from common.utils.rsa_util import rsa_long_decrypt
 from common.utils.shared_resource_auth import filter_authorized_ids
 from common.utils.tool_code import ToolExecutor
-from django.db.models import QuerySet
-from django.utils.translation import gettext as _
-from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, SystemMessage
 from models_provider.models import Model
 from models_provider.tools import get_model_credential, get_model_instance_by_model_workspace_id
-from tools.models import Tool
+from tools.models import Tool, ToolType
 
 
 def _write_context(node_variable: Dict, workflow_variable: Dict, node: INode, workflow, answer: str,
@@ -151,6 +153,8 @@ class BaseChatNode(IChatNode):
 
     def execute(self, model_id, system, prompt, dialogue_number, history_chat_record, stream, chat_id, chat_record_id,
                 model_params_setting=None,
+                model_id_type=None,
+                model_id_reference=None,
                 dialogue_type=None,
                 model_setting=None,
                 mcp_servers=None,
@@ -165,15 +169,29 @@ class BaseChatNode(IChatNode):
         if dialogue_type is None:
             dialogue_type = 'WORKFLOW'
 
-        if model_params_setting is None:
+        if model_id_type == 'reference' and model_id_reference:
+
+            reference_data = self.workflow_manage.get_reference_field(
+                model_id_reference[0],
+                model_id_reference[1:],
+            )
+
+            if reference_data and isinstance(reference_data, dict):
+                model_id = reference_data.get('model_id', model_id)
+                model_params_setting = reference_data.get('model_params_setting')
+        if model_id is None or model_id == '':
+            raise Exception(_('Model is not allowed to be empty'))
+
+        if model_params_setting is None and model_id:
             model_params_setting = get_default_model_params_setting(model_id)
+
         if model_setting is None:
             model_setting = {'reasoning_content_enable': False, 'reasoning_content_end': '</think>',
                              'reasoning_content_start': '<think>'}
         self.context['model_setting'] = model_setting
         workspace_id = self.workflow_manage.get_body().get('workspace_id')
         chat_model = get_model_instance_by_model_workspace_id(model_id, workspace_id,
-                                                              **model_params_setting)
+                                                              **(model_params_setting or {}))
         history_message = self.get_history_message(history_chat_record, dialogue_number, dialogue_type,
                                                    self.runtime_node_id)
         self.context['history_message'] = [{'content': message.content, 'role': message.type} for message in
@@ -202,7 +220,7 @@ class BaseChatNode(IChatNode):
         mcp_result = self._handle_mcp_request(
             mcp_source, mcp_servers, mcp_tool_id, mcp_tool_ids, tool_ids,
             application_ids, skill_tool_ids, mcp_output_enable,
-            chat_model, message_list, history_message, question, chat_id
+            chat_model, message_list, history_message, question, chat_id, workspace_id
         )
         if mcp_result:
             return mcp_result
@@ -222,7 +240,8 @@ class BaseChatNode(IChatNode):
 
     def _handle_mcp_request(self, mcp_source, mcp_servers, mcp_tool_id, mcp_tool_ids, tool_ids,
                             application_ids, skill_tool_ids,
-                            mcp_output_enable, chat_model, message_list, history_message, question, chat_id):
+                            mcp_output_enable, chat_model, message_list, history_message, question, chat_id,
+                            workspace_id):
 
         mcp_servers_config = {}
 
@@ -234,7 +253,8 @@ class BaseChatNode(IChatNode):
             mcp_tool_ids = []
         if mcp_tool_id:
             mcp_tool_ids = list(set(mcp_tool_ids + [mcp_tool_id]))
-        if mcp_source == 'custom' and mcp_servers and '"stdio"' not in mcp_servers:
+        if mcp_source == 'custom' and mcp_servers:
+            ToolExecutor().validate_mcp_transport(mcp_servers)
             mcp_servers_config = json.loads(mcp_servers)
             mcp_servers_config = self.handle_variables(mcp_servers_config)
         elif mcp_tool_ids:
@@ -244,11 +264,13 @@ class BaseChatNode(IChatNode):
                     mcp_servers_config = {**mcp_servers_config, **json.loads(mcp_tool['code'])}
                     mcp_servers_config = self.handle_variables(mcp_servers_config)
         tool_init_params = {}
+        tools = get_tools(self.workflow_manage.get_source_type(), self.workflow_manage.get_source_id(), tool_ids,
+                          workspace_id)
         if tool_ids and len(tool_ids) > 0:  # 如果有工具ID，则将其转换为MCP
             self.context['tool_ids'] = tool_ids
             for tool_id in tool_ids:
-                tool = QuerySet(Tool).filter(id=tool_id).first()
-                if not tool.is_active:
+                tool = QuerySet(Tool).filter(id=tool_id, tool_type=ToolType.CUSTOM).first()
+                if tool is None or not tool.is_active:
                     continue
                 executor = ToolExecutor()
                 if tool.init_params is not None:
@@ -308,18 +330,24 @@ class BaseChatNode(IChatNode):
                 })
             mcp_servers_config['skills'] = skill_file_items
 
-        if len(mcp_servers_config) > 0:
+        if len(mcp_servers_config) > 0 or len(tools) > 0:
             # 安全获取 application
             application_id = None
-            if (self.workflow_manage and
-                    self.workflow_manage.work_flow_post_handler and
-                    self.workflow_manage.work_flow_post_handler.chat_info):
+            tool_id = None
+            knowledge_id = None
+            if [WorkflowMode.KNOWLEDGE, WorkflowMode.KNOWLEDGE_LOOP].__contains__(
+                    self.workflow_manage.flow.workflow_mode):
+                knowledge_id = self.workflow_params.get('knowledge_id')
+            elif [WorkflowMode.APPLICATION, WorkflowMode.APPLICATION_LOOP].__contains__(
+                    self.workflow_manage.flow.workflow_mode):
                 application_id = self.workflow_manage.work_flow_post_handler.chat_info.application.id
-            knowledge_id = self.workflow_params.get('knowledge_id')
-            source_id = application_id or knowledge_id
-            source_type = 'APPLICATION' if application_id else 'KNOWLEDGE'
+            elif [WorkflowMode.TOOL, WorkflowMode.TOOL_LOOP].__contains__(self.workflow_manage.flow.workflow_mode):
+                tool_id = self.workflow_params.get('tool_id')
+
+            source_id = application_id or knowledge_id or tool_id
+            source_type = 'APPLICATION' if application_id else 'KNOWLEDGE' if knowledge_id else 'TOOL'
             r = mcp_response_generator(chat_model, message_list, json.dumps(mcp_servers_config), mcp_output_enable,
-                                       tool_init_params, source_id, source_type, chat_id)
+                                       tool_init_params, source_id, source_type, chat_id, tools)
             return NodeResult(
                 {'result': r, 'chat_model': chat_model, 'message_list': message_list,
                  'history_message': [{'content': message.content, 'role': message.type} for message in
@@ -334,9 +362,9 @@ class BaseChatNode(IChatNode):
         for k, v in tool_params.items():
             if type(v) == str:
                 tool_params[k] = self.workflow_manage.generate_prompt(tool_params[k])
-            if type(v) == dict:
+            elif type(v) == dict:
                 self.handle_variables(v)
-            if (type(v) == list) and (type(v[0]) == str):
+            elif (type(v) == list) and len(v) > 0 and type(v[0]) == str:
                 tool_params[k] = self.get_reference_content(v)
         return tool_params
 

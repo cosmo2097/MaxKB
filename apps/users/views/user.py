@@ -42,7 +42,6 @@ def get_user_operation_object(user_id):
     return {}
 
 
-
 def get_re_password_details(request):
     path = request.path
     body = request.data
@@ -127,9 +126,10 @@ class UserList(APIView):
                    tags=[_("User Management")],  # type: ignore
                    responses=UserListApi.get_response())
     @has_permissions(RoleConstants.WORKSPACE_MANAGE, RoleConstants.ADMIN, RoleConstants.EXTENDS_ADMIN,
-                     RoleConstants.EXTENDS_WORKSPACE_MANAGE)
+                     RoleConstants.EXTENDS_WORKSPACE_MANAGE, RoleConstants.USER, RoleConstants.EXTENDS_USER)
     def get(self, request: Request):
-        return result.success(UserManageSerializer().get_all_user_list())
+        nick_name = request.query_params.get('nick_name', None)
+        return result.success(UserManageSerializer().get_all_user_list(nick_name))
 
 
 class WorkspaceUserListView(APIView):

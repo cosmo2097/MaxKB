@@ -18,8 +18,8 @@ from common.utils.logger import maxkb_logger
 from common.utils.rsa_util import rsa_long_decrypt
 from common.utils.tool_code import ToolExecutor
 from knowledge.models.knowledge_action import State
-from tools.models import Tool, ToolRecord, ToolTaskTypeChoices
-from trigger.handler.base_task import BaseTriggerTask
+from tools.models import ToolRecord, ToolTaskTypeChoices, ToolType
+from trigger.handler.impl.task.tool_task.common import BaseToolTriggerTask
 from trigger.models import TaskRecord
 
 executor = ToolExecutor()
@@ -108,20 +108,16 @@ def _get_result_detail(result):
     return result_dict
 
 
-class ToolTask(BaseTriggerTask):
-    def support(self, trigger_task, **kwargs):
-        return trigger_task.get('source_type') == 'TOOL'
+class ToolTask(BaseToolTriggerTask):
+    def support(self, tool, trigger_task, **kwargs):
+        return tool.tool_type == ToolType.CUSTOM
 
-    def execute(self, trigger_task, **kwargs):
+    def execute(self, tool, trigger_task, **kwargs):
         parameter_setting = trigger_task.get('parameter')
         tool_id = trigger_task.get('source_id')
         task_record_id = uuid.uuid7()
         start_time = time.time()
         try:
-            tool = QuerySet(Tool).filter(id=tool_id, is_active=True).first()
-            if not tool:
-                maxkb_logger.info(f"Tool with id {tool_id} not found or inactive.")
-                return
 
             TaskRecord(
                 id=task_record_id,

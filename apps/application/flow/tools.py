@@ -6,13 +6,17 @@
     @date：2024/6/6 15:15
     @desc:
 """
-from tools.models import ToolRecord, Tool
+from langchain_core.tools import StructuredTool
+
+from application.flow.common import Workflow, WorkflowMode
+from application.serializers.common import ToolExecute
+from tools.models import ToolRecord, Tool, ToolScope, ToolWorkflowVersion, ToolType
 from maxkb.const import CONFIG
 from knowledge.models.knowledge_action import State
 from knowledge.models import File
 from common.utils.logger import maxkb_logger
 from common.result import result
-from application.flow.i_step_node import WorkFlowPostHandler
+from application.flow.i_step_node import WorkFlowPostHandler, ToolWorkflowPostHandler
 from application.flow.backend.sandbox_shell import SandboxShellBackend
 import asyncio
 import io
@@ -25,13 +29,13 @@ import threading
 import zipfile
 from functools import reduce
 from typing import Iterator
-
+from pydantic import Field, create_model
 import uuid_utils.compat as uuid
 from asgiref.sync import sync_to_async
 from deepagents import create_deep_agent
-from django.db.models import QuerySet
+from django.db.models import QuerySet, OuterRef, Subquery
 from django.http import StreamingHttpResponse
-from langchain_core.messages import BaseMessageChunk, BaseMessage, ToolMessage, AIMessageChunk
+from langchain_core.messages import BaseMessageChunk, BaseMessage, ToolMessage, AIMessageChunk, SystemMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -56,6 +60,7 @@ def _merge_lists_normalize_empty_tool_chunk_ids(left, *others):
     """Wrapper around merge_lists that normalises empty-string IDs to None in
     tool_call_chunk items (those with an 'index' key) so that qwen streaming
     chunks with id='' are merged correctly by index."""
+
     def _norm(lst):
         if lst is None:
             return lst
@@ -158,9 +163,9 @@ class Reasoning:
                     self.reasoning_content_end_tag)
                 if reasoning_content_end_tag_index > -1:
                     reasoning_content_chunk = self.reasoning_content_chunk[
-                        0:reasoning_content_end_tag_index]
+                                              0:reasoning_content_end_tag_index]
                     content_chunk = self.reasoning_content_chunk[
-                        reasoning_content_end_tag_index + self.reasoning_content_end_tag_len:]
+                                    reasoning_content_end_tag_index + self.reasoning_content_end_tag_len:]
                     self.reasoning_content += reasoning_content_chunk
                     self.content += content_chunk
                     self.reasoning_content_chunk = ""
@@ -168,7 +173,7 @@ class Reasoning:
                     return {'content': content_chunk, 'reasoning_content': reasoning_content_chunk}
                 else:
                     reasoning_content_chunk = self.reasoning_content_chunk[
-                        0:reasoning_content_end_tag_prefix_index + 1]
+                                              0:reasoning_content_end_tag_prefix_index + 1]
                     self.reasoning_content_chunk = self.reasoning_content_chunk.replace(
                         reasoning_content_chunk, '')
                     self.reasoning_content += reasoning_content_chunk
@@ -401,16 +406,55 @@ async def _initialize_skills(mcp_servers, temp_dir):
 
 
 async def _yield_mcp_response(chat_model, message_list, mcp_servers, mcp_output_enable=True, tool_init_params={},
-                              source_id=None, source_type=None, temp_dir=None, chat_id=None):
+                              source_id=None, source_type=None, temp_dir=None, chat_id=None, extra_tools=None):
     try:
         checkpointer = MemorySaver()
         client = await _initialize_skills(mcp_servers, temp_dir)
         tools = await client.get_tools()
+        for tool in tools:
+            tool.handle_tool_error = True
+        if extra_tools:
+            for tool in extra_tools:
+                tools.append(tool)
+
+        # ---------------------------------------------------------------------------
+        # Fix: vLLM (and Qwen chat templates) reject conversations that contain more
+        # than one SystemMessage, or a SystemMessage that is not the very first
+        # message.  create_deep_agent always prepends its own BASE_AGENT_PROMPT as a
+        # SystemMessage before calling the model (factory.py line ~1319).  If
+        # message_list already contains a SystemMessage (built in base_chat_node.py
+        # via generate_message_list), the API receives two system messages and raises
+        # "System message must be at the beginning."
+        #
+        # Solution: strip the user-supplied SystemMessage out of message_list and
+        # pass its text as the system_prompt argument of create_deep_agent.
+        # deepagents will then merge it with BASE_AGENT_PROMPT into a single
+        # combined system message, so the model only ever sees one.
+        # ---------------------------------------------------------------------------
+        user_system_prompt = None
+        filtered_message_list = []
+        for msg in message_list:
+            if isinstance(msg, SystemMessage):
+                # Normalise content to plain string regardless of whether the
+                # message was built with a str or a list of content blocks.
+                if isinstance(msg.content, str):
+                    user_system_prompt = msg.content
+                elif isinstance(msg.content, list):
+                    user_system_prompt = ''.join(
+                        item.get('text', '') if isinstance(item, dict) else str(item)
+                        for item in msg.content
+                    )
+                else:
+                    user_system_prompt = str(msg.content)
+            else:
+                filtered_message_list.append(msg)
+
         agent = create_deep_agent(
             model=chat_model,
             backend=SandboxShellBackend(root_dir=temp_dir, virtual_mode=True),
             skills=['/skills'],
             tools=tools,
+            system_prompt=user_system_prompt,
             interrupt_on={
                 "write_file": False,
                 "read_file": False,
@@ -421,7 +465,7 @@ async def _yield_mcp_response(chat_model, message_list, mcp_servers, mcp_output_
         recursion_limit = int(CONFIG.get(
             "LANGCHAIN_GRAPH_RECURSION_LIMIT", '100'))
         response = agent.astream(
-            {"messages": message_list},
+            {"messages": filtered_message_list},
             config={"recursion_limit": recursion_limit,
                     "configurable": {"thread_id": chat_id}},
             stream_mode='messages'
@@ -517,7 +561,7 @@ async def _yield_mcp_response(chat_model, message_list, mcp_servers, mcp_output_
                     # qwen-plus often emits {} here as a placeholder while
                     # the real args are split in tool_call_chunks/invalid_tool_calls.
                     if has_tool_call_chunks and (
-                        part_args == '' or part_args == {} or part_args == []
+                            part_args == '' or part_args == {} or part_args == []
                     ):
                         part_args = ''
                     key = _get_fragment_key(tool_call.get('index'), raw_id)
@@ -563,9 +607,9 @@ async def _yield_mcp_response(chat_model, message_list, mcp_servers, mcp_output_
                 # 3. 检测工具调用结束，更新 tool_calls_info
                 # ----------------------------------------------------------------
                 is_finish_chunk = (
-                    chunk[0].response_metadata.get(
-                        'finish_reason') == 'tool_calls'
-                    or chunk[0].chunk_position == 'last'
+                        chunk[0].response_metadata.get(
+                            'finish_reason') == 'tool_calls'
+                        or chunk[0].chunk_position == 'last'
                 )
 
                 if is_finish_chunk:
@@ -734,7 +778,7 @@ async def save_tool_record(tool_id, tool_info, tool_result, source_id, source_ty
 
 
 def mcp_response_generator(chat_model, message_list, mcp_servers, mcp_output_enable=True, tool_init_params={},
-                           source_id=None, source_type=None, chat_id=None):
+                           source_id=None, source_type=None, chat_id=None, extra_tools=None):
     """使用全局事件循环，不创建新实例"""
     result_queue = queue.Queue()
     loop = get_global_loop()  # 使用共享循环
@@ -751,7 +795,7 @@ def mcp_response_generator(chat_model, message_list, mcp_servers, mcp_output_ena
     async def _run():
         try:
             async_gen = _yield_mcp_response(chat_model, message_list, mcp_servers, mcp_output_enable, tool_init_params,
-                                            source_id, source_type, temp_dir, chat_id)
+                                            source_id, source_type, temp_dir, chat_id, extra_tools)
             async for chunk in async_gen:
                 result_queue.put(('data', chunk))
         except Exception as e:
@@ -785,7 +829,8 @@ target_source_node_mapping = {
              'ai-chat-node': lambda n: [*(n.get('properties').get('node_data').get('mcp_tool_ids') or []),
                                         *(n.get('properties').get('node_data').get('tool_ids') or []),
                                         *(n.get('properties').get('node_data').get('skill_tool_ids') or [])],
-             'mcp-node': lambda n: [n.get('properties').get('node_data').get('mcp_tool_id')]
+             'mcp-node': lambda n: [n.get('properties').get('node_data').get('mcp_tool_id')],
+             'tool-workflow-lib-node': lambda n: [n.get('properties').get('node_data').get('tool_lib_id')]
              },
     'MODEL': {'ai-chat-node': lambda n: [n.get('properties').get('node_data').get('model_id')],
               'question-node': lambda n: [n.get('properties').get('node_data').get('model_id')],
@@ -887,7 +932,8 @@ def save_workflow_mapping(workflow, source_type, source_id, other_resource_mappi
             {(str(item.target_type) + str(item.target_id)): item for item in resource_mapping_list}.values())
 
 
-def get_tool_id_list(workflow):
+def get_tool_id_list(workflow, with_deep=False):
+    from tools.models import ToolWorkflow, ToolType
     _result = []
     for node in workflow.get('nodes', []):
         if node.get('type') == 'tool-lib-node':
@@ -900,6 +946,11 @@ def get_tool_id_list(workflow):
                 'node_data', {}).get('loop_body', {}))
             for item in r:
                 _result.append(item)
+        elif node.get('type') == 'tool-workflow-lib-node':
+            tool_id = node.get('properties', {}).get(
+                'node_data', {}).get('tool_lib_id')
+            if tool_id:
+                _result.append(tool_id)
         elif node.get('type') == 'ai-chat-node':
             node_data = node.get('properties', {}).get('node_data', {})
             mcp_tool_ids = node_data.get('mcp_tool_ids') or []
@@ -912,4 +963,129 @@ def get_tool_id_list(workflow):
                 'node_data', {}).get('mcp_tool_id')
             if mcp_tool_id:
                 _result.append(mcp_tool_id)
+    if with_deep:
+        workflow_list = QuerySet(Tool).filter(id__in=_result, tool_type=ToolType.WORKFLOW)
+        tool_work_flow_list = QuerySet(ToolWorkflow).filter(tool_id__in=[wl.id for wl in workflow_list])
+        for tool_work_flow in tool_work_flow_list:
+            child_tool_id_list = get_child_tool_id_list(tool_work_flow.work_flow, [])
+            for c in child_tool_id_list:
+                _result.append(c)
     return _result
+
+
+def get_child_tool_id_list(work_flow, response):
+    from tools.models import ToolWorkflow, ToolType
+    tool_id_list = get_tool_id_list(work_flow, False)
+    tool_id_list = [tool_id for tool_id in tool_id_list if
+                    len([r for r in response if r == tool_id]) == 0]
+    tool_list = []
+    if len(tool_id_list) > 0:
+        tool_list = QuerySet(Tool).filter(id__in=tool_id_list).exclude(scope=ToolScope.SHARED)
+        work_flow_tools = [tool for tool in tool_list if tool.tool_type == ToolType.WORKFLOW]
+        if len(work_flow_tools) > 0:
+
+            work_flow_tool_dict = {tw.tool_id: tw for tw in
+                                   QuerySet(ToolWorkflow).filter(tool_id__in=[t.id for t in work_flow_tools])}
+            for tool in tool_list:
+                response.append(str(tool.id))
+                if tool.tool_type == ToolType.WORKFLOW:
+                    get_child_tool_id_list(work_flow_tool_dict.get(tool.id).work_flow, response)
+        else:
+            for tool in tool_list:
+                response.append(str(tool.id))
+    return response
+
+
+def build_schema(fields: dict):
+    return create_model("dynamicSchema", **fields)
+
+
+def get_type(_type: str):
+    if _type == 'float':
+        return float
+    if _type == 'string':
+        return str
+    if _type == 'int':
+        return int
+    if _type == 'dict':
+        return dict
+    if _type == 'array':
+        return list
+    if _type == 'boolean':
+        return bool
+    return object
+
+
+def get_workflow_args(tool, qv):
+    for node in qv.work_flow.get('nodes'):
+        if node.get('type') == 'tool-base-node':
+            input_field_list = node.get('properties').get('user_input_field_list')
+            return build_schema(
+                {field.get('field'): (get_type(field.get('type')), Field(..., description=field.get('desc')))
+                 for field in input_field_list})
+
+    return build_schema({})
+
+
+def get_workflow_func(source_type, source_id, tool, qv, workspace_id):
+    tool_id = tool.id
+    tool_record_id = str(uuid.uuid7())
+    took_execute = ToolExecute(tool_id, tool_record_id,
+                               workspace_id,
+                               source_type,
+                               source_id,
+                               False)
+
+    def inner(**kwargs):
+        from application.flow.tool_workflow_manage import ToolWorkflowManage
+        work_flow_manage = ToolWorkflowManage(
+            Workflow.new_instance(qv.work_flow, WorkflowMode.TOOL),
+            {
+                'chat_record_id': tool_record_id,
+                'tool_id': tool_id,
+                'stream': True,
+                'workspace_id': workspace_id,
+                **kwargs},
+
+            ToolWorkflowPostHandler(took_execute, tool_id),
+            is_the_task_interrupted=lambda: False,
+            child_node=None,
+            start_node_id=None,
+            start_node_data=None,
+            chat_record=None
+        )
+        res = work_flow_manage.run()
+        for r in res:
+            pass
+        return work_flow_manage.out_context
+
+    return inner
+
+
+def get_tools(source_type, source_id, tool_workflow_ids, workspace_id):
+    tools = QuerySet(Tool).filter(id__in=tool_workflow_ids, is_active=True, tool_type=ToolType.WORKFLOW,
+                                  workspace_id=workspace_id)
+    latest_subquery = ToolWorkflowVersion.objects.filter(
+        tool_id=OuterRef('tool_id')
+    ).order_by('-create_time')
+
+    qs = ToolWorkflowVersion.objects.filter(
+        tool_id__in=[t.id for t in tools],
+        id=Subquery(latest_subquery.values('id')[:1])
+    )
+    qd = {q.tool_id: q for q in qs}
+    results = []
+    for tool in tools:
+        qv = qd.get(tool.id)
+        func = get_workflow_func(source_type, source_id, tool, qv,
+                                 workspace_id)
+        args = get_workflow_args(tool, qv)
+        tool = StructuredTool.from_function(
+            func=func,
+            name=tool.name,
+            description=tool.desc,
+            args_schema=args,
+        )
+        results.append(tool)
+
+    return results

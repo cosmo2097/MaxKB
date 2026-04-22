@@ -1,6 +1,7 @@
 import { WorkflowKind } from './../../enums/application'
 import { WorkflowType, WorkflowMode } from '@/enums/application'
 import { t } from '@/locales'
+import call$ from 'dingtalk-jsapi/api/biz/telephone/call'
 
 export const startNode = {
   id: WorkflowType.Start,
@@ -72,6 +73,41 @@ export const knowledgeBaseNode = {
       prologue: t('views.application.form.defaultPrologue'),
       tts_type: 'BROWSER',
     },
+    config: {},
+    showNode: true,
+    user_input_config: { title: t('chat.userInput') },
+    user_input_field_list: [],
+  },
+}
+export const toolBaseNode = {
+  id: WorkflowType.ToolBaseNode,
+  type: WorkflowType.ToolBaseNode,
+  x: 360,
+  y: 2761.3875,
+  text: '',
+  properties: {
+    width: 500,
+    height: 728.375,
+    stepName: t('common.info'),
+    input_field_list: [],
+    node_data: {},
+    config: {},
+    showNode: true,
+    user_input_config: { title: t('chat.userInput') },
+    user_input_field_list: [],
+  },
+}
+export const toolStartNode = {
+  id: WorkflowType.ToolStartNode,
+  type: WorkflowType.ToolStartNode,
+  x: 280,
+  y: 3301,
+  text: '',
+  properties: {
+    height: 728.375,
+    stepName: t('workflow.nodes.startNode.label'),
+    input_field_list: [],
+    node_data: {},
     config: {},
     showNode: true,
     user_input_config: { title: t('chat.userInput') },
@@ -881,7 +917,92 @@ export const knowledgeLoopMenuNodes = [
     list: [mcpNode, toolNode],
   },
 ]
-
+export const toolLoopMenuNodes = [
+  {
+    label: t('views.tool.dataSource.title'),
+    list: [dataSourceLocalNode, dataSourceWebNode],
+  },
+  {
+    label: t('views.knowledge.title'),
+    list: [documentSplitNode, knowledgeWriteNode, documentExtractNode],
+  },
+  {
+    label: t('workflow.nodes.classify.aiCapability'),
+    list: [
+      aiChatNode,
+      intentNode,
+      textToSpeechNode,
+      speechToTextNode,
+      imageGenerateNode,
+      imageUnderstandNode,
+      textToVideoNode,
+      imageToVideoNode,
+      videoUnderstandNode,
+      questionNode,
+    ],
+  },
+  {
+    label: t('workflow.nodes.classify.businessLogic'),
+    list: [conditionNode, formNode, replyNode, loopContinueNode, loopBreakNode],
+  },
+  {
+    label: t('workflow.nodes.classify.dataProcessing'),
+    list: [
+      variableAssignNode,
+      variableAggregationNode,
+      variableSplittingNode,
+      parameterExtractionNode,
+    ],
+  },
+  {
+    label: t('workflow.nodes.classify.other'),
+    list: [mcpNode, toolNode],
+  },
+]
+const toolMenuNodes = [
+  {
+    label: t('workflow.nodes.classify.aiCapability'),
+    list: [
+      aiChatNode,
+      intentNode,
+      textToSpeechNode,
+      speechToTextNode,
+      imageGenerateNode,
+      imageUnderstandNode,
+      textToVideoNode,
+      imageToVideoNode,
+      videoUnderstandNode,
+      questionNode,
+    ],
+  },
+  {
+    label: t('views.knowledge.title'),
+    list: [
+      searchKnowledgeNode,
+      searchDocumentNode,
+      rerankerNode,
+      documentExtractNode,
+      documentSplitNode,
+    ],
+  },
+  {
+    label: t('workflow.nodes.classify.businessLogic'),
+    list: [conditionNode, formNode, replyNode, loopNode],
+  },
+  {
+    label: t('workflow.nodes.classify.dataProcessing'),
+    list: [
+      variableAssignNode,
+      variableAggregationNode,
+      variableSplittingNode,
+      parameterExtractionNode,
+    ],
+  },
+  {
+    label: t('workflow.nodes.classify.other'),
+    list: [mcpNode, toolNode],
+  },
+]
 export const getMenuNodes = (workflowMode: WorkflowMode) => {
   if (workflowMode == WorkflowMode.Application) {
     return menuNodes
@@ -895,6 +1016,48 @@ export const getMenuNodes = (workflowMode: WorkflowMode) => {
   if (workflowMode == WorkflowMode.KnowledgeLoop) {
     return knowledgeLoopMenuNodes
   }
+  if (workflowMode == WorkflowMode.Tool) {
+    return toolMenuNodes
+  }
+  if (workflowMode == WorkflowMode.ToolLoop) {
+    return toolLoopMenuNodes
+  }
+}
+export const workflowModelDict: any = {
+  [WorkflowMode.Application]: (node: any) => {
+    return (
+      ['application-node', 'tool-workflow-lib-node', 'tool-lib-node'].includes(node.type) &&
+      node?.properties?.node_data?.tool_type !== 'DATA_SOURCE'
+    )
+  },
+  [WorkflowMode.ApplicationLoop]: (node: any) => {
+    return (
+      ['application-node', 'tool-workflow-lib-node', 'tool-lib-node'].includes(node.type) &&
+      node?.properties?.node_data?.tool_type !== 'DATA_SOURCE'
+    )
+  },
+  [WorkflowMode.Knowledge]: (node: any) => {
+    console.log(['tool-workflow-lib-node', 'tool-lib-node'].includes(node))
+    return ['tool-workflow-lib-node', 'tool-lib-node'].includes(node.type)
+  },
+  [WorkflowMode.KnowledgeLoop]: (node: any) => {
+    return (
+      ['tool-workflow-lib-node', 'tool-lib-node'].includes(node.type) &&
+      node?.properties?.node_data?.tool_type !== 'DATA_SOURCE'
+    )
+  },
+  [WorkflowMode.Tool]: (node: any) => {
+    return (
+      ['tool-workflow-lib-node', 'tool-lib-node'].includes(node.type) &&
+      node?.properties?.node_data?.tool_type !== 'DATA_SOURCE'
+    )
+  },
+  [WorkflowMode.ToolLoop]: (node: any) => {
+    return (
+      ['tool-workflow-lib-node', 'tool-lib-node'].includes(node.type) &&
+      node?.properties?.node_data?.tool_type !== 'DATA_SOURCE'
+    )
+  },
 }
 
 /**
@@ -914,6 +1077,22 @@ export const toolLibNode = {
           value: 'result',
         },
       ],
+    },
+  },
+}
+
+/**
+ * 工作流工具配置数据
+ */
+export const toolWorkflowLibNode = {
+  type: WorkflowType.ToolWorkflowLib,
+  text: t('workflow.nodes.toolWorlflowNode.text', '工作流工具'),
+  label: t('workflow.nodes.toolWorlflowNode.label', '工作流工具'),
+  height: 170,
+  properties: {
+    stepName: t('workflow.nodes.toolWorlflowNode.label', '工作流工具'),
+    config: {
+      fields: [],
     },
   },
 }
@@ -956,6 +1135,8 @@ export const compareList = [
   { value: 'is_not_true', label: t('workflow.compare.is_not_true') },
   { value: 'start_with', label: 'startWith' },
   { value: 'end_with', label: 'endWith' },
+  { value: 'regex', label: t('workflow.compare.regex') },
+  { value: 'wildcard', label: t('workflow.compare.wildcard') },
 ]
 export const nodeDict: any = {
   [WorkflowType.AiChat]: aiChatNode,
@@ -967,6 +1148,7 @@ export const nodeDict: any = {
   [WorkflowType.Start]: startNode,
   [WorkflowType.Reply]: replyNode,
   [WorkflowType.ToolLib]: toolNode,
+  [WorkflowType.ToolWorkflowLib]: toolWorkflowLibNode,
   [WorkflowType.ToolLibCustom]: toolNode,
   [WorkflowType.RerankerNode]: rerankerNode,
   [WorkflowType.FormNode]: formNode,
@@ -995,6 +1177,8 @@ export const nodeDict: any = {
   [WorkflowType.DataSourceLocalNode]: dataSourceLocalNode,
   [WorkflowType.DataSourceWebNode]: dataSourceWebNode,
   [WorkflowType.KnowledgeWriteNode]: knowledgeWriteNode,
+  [WorkflowType.ToolBaseNode]: toolBaseNode,
+  [WorkflowType.ToolStartNode]: toolStartNode,
 }
 
 export function isWorkFlow(type: string | undefined) {

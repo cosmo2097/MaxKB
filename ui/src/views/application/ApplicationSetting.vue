@@ -483,7 +483,13 @@
                                 alt=""
                               />
                             </el-avatar>
-                            <ToolIcon v-else class="mr-8" :size="20" />
+                            <ToolIcon
+                              v-else
+                              class="mr-8"
+                              :size="20"
+                              style="--el-avatar-border-radius: 6px"
+                              :type="relatedObject(toolSelectOptions, item, 'id')?.tool_type"
+                            />
 
                             <div
                               class="ellipsis-1"
@@ -502,7 +508,10 @@
 
                   <!-- 技能   -->
                   <div v-if="toolPermissionPrecise.read()">
-                    <div class="flex-between mb-8" @click="collapseData.skill = !collapseData.skill">
+                    <div
+                      class="flex-between mb-8"
+                      @click="collapseData.skill = !collapseData.skill"
+                    >
                       <div class="flex align-center lighter cursor">
                         <el-icon
                           class="mr-8 arrow-icon"
@@ -535,7 +544,10 @@
                         collapseData.skill
                       "
                     >
-                      <template v-for="(item, index) in applicationForm.skill_tool_ids" :key="index">
+                      <template
+                        v-for="(item, index) in applicationForm.skill_tool_ids"
+                        :key="index"
+                      >
                         <div
                           v-if="relatedObject(skillToolSelectOptions, item, 'id')"
                           class="flex-between border border-r-6 white-bg mb-4"
@@ -550,7 +562,9 @@
                               class="mr-8"
                             >
                               <img
-                                :src="resetUrl(relatedObject(skillToolSelectOptions, item, 'id')?.icon)"
+                                :src="
+                                  resetUrl(relatedObject(skillToolSelectOptions, item, 'id')?.icon)
+                                "
                                 alt=""
                               />
                             </el-avatar>
@@ -809,8 +823,6 @@
                     </el-button>
                   </div>
                 </el-form-item>
-
-
               </el-form>
             </el-scrollbar>
           </div>
@@ -846,8 +858,8 @@
       @refresh="submitReasoningDialog"
     />
     <McpServersDialog ref="mcpServersDialogRef" @refresh="submitMcpServersDialog" />
-    <ToolDialog ref="toolDialogRef" @refresh="submitToolDialog" tool_type="CUSTOM"/>
-    <ToolDialog ref="skillToolDialogRef" @refresh="submitSkillToolDialog" tool_type="SKILL"/>
+    <ToolDialog ref="toolDialogRef" @refresh="submitToolDialog" tool_type="CUSTOM,WORKFLOW" />
+    <ToolDialog ref="skillToolDialogRef" @refresh="submitSkillToolDialog" tool_type="SKILL" />
     <ApplicationDialog ref="applicationDialogRef" @refresh="submitApplicationDialog" />
   </div>
 </template>
@@ -987,7 +999,6 @@ const modelOptions = ref<any>(null)
 const knowledgeList = ref<Array<any>>([])
 const sttModelOptions = ref<any>(null)
 const ttsModelOptions = ref<any>(null)
-
 
 function submitPrologueDialog(val: string) {
   applicationForm.value.prologue = val
@@ -1174,12 +1185,12 @@ function getToolSelectOptions() {
     apiType.value === 'systemManage'
       ? {
           scope: 'WORKSPACE',
-          tool_type: 'CUSTOM',
+          tool_type_list: ['CUSTOM', 'WORKFLOW'],
           workspace_id: applicationForm.value?.workspace_id,
         }
       : {
           scope: 'WORKSPACE',
-          tool_type: 'CUSTOM',
+          tool_type_list: ['CUSTOM', 'WORKFLOW'],
         }
 
   loadSharedApi({ type: 'tool', systemType: apiType.value })
