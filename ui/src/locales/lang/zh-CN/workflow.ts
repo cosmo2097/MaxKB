@@ -39,7 +39,8 @@ export default {
     copyError: '已复制节点',
     paramErrorMessage: '参数已存在: ',
     saveMessage: '当前的更改尚未保存，是否保存后退出?',
-    searchPlaceholder: '请输入节点名称'
+    searchPlaceholder: '请输入节点名称',
+    disabled: '该节点已被禁用',
   },
   delete: {
     confirmTitle: '确定删除该节点？',
@@ -86,6 +87,10 @@ export default {
     loopNodeBreakNodeRequired: '无限循环 必须存在 Break 节点',
   },
   nodes: {
+    toolWorlflowNode: {
+      label: '工作流工具',
+      text: '工作流工具',
+    },
     knowledgeWriteNode: {
       label: '知识库写入',
       text: '将输入的分段列表写入当前知识库，并完成向量化处理',
@@ -498,7 +503,8 @@ export default {
       expression: {
         label: '表达式',
         placeholder: '请输入表达式',
-        tooltip: '请使用 JSON Path 表达式拆分变量，例如：$.store.book <a href="https://pypi.org/project/jsonpath-ng/1.8.0/" target="_blank" class="expression_tip">点击查看详情 ➜ pypi.org</a>',
+        tooltip:
+          '请使用 JSON Path 表达式拆分变量，例如：$.store.book <a href="https://pypi.org/project/jsonpath-ng/1.8.0/" target="_blank" class="expression_tip">点击查看详情 ➜ pypi.org</a>',
       },
     },
     parameterExtractionNode: {
@@ -535,6 +541,5 @@ export default {
   SystemPromptPlaceholder: '系统提示词，可以引用系统中的变量：如',
   UserPromptPlaceholder: '用户提示词，可以引用系统中的变量：如',
   initiator: '发起人',
-  abnormalInformation: '异常信息'
-
+  abnormalInformation: '异常信息',
 }

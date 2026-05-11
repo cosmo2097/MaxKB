@@ -41,6 +41,7 @@ export default {
     paramErrorMessage: 'Parameter already exists: ',
     saveMessage: 'Current changes have not been saved. Save before exiting?',
     searchPlaceholder: 'Please enter node name',
+    disabled: 'The node has been disabled',
   },
   delete: {
     confirmTitle: 'Confirm to delete this node?',
@@ -86,6 +87,10 @@ export default {
     loopNodeBreakNodeRequired: 'Wireless loop must have a Break node',
   },
   nodes: {
+    toolWorlflowNode: {
+      label: 'Workflow Tool',
+      text: 'Workflow Tool',
+    },
     knowledgeWriteNode: {
       label: 'Knowledge write',
       text: 'Write the input paragraph list into the current knowledge base and complete vectorization processing',
@@ -188,7 +193,7 @@ export default {
       result: 'Search Results',
       searchParam: 'Search Parameters',
       select_variable: 'Select Variable',
-      valueMessage: `Value or name `,
+      valueMessage: 'Value or name',
 
       searchQuestion: {
         label: 'Search Question',
@@ -507,7 +512,8 @@ You are a master of problem optimization, adept at accurately inferring user int
       expression: {
         label: 'Expression',
         placeholder: 'Please enter expression',
-        tooltip: 'Please use JSON Path expressions to split variables, e.g.: $.store.book <a href="https://pypi.org/project/jsonpath-ng/1.8.0/" target="_blank" class="expression_tip">Click for details ➜ pypi.org</a>',
+        tooltip:
+          'Please use JSON Path expressions to split variables, e.g.: $.store.book <a href="https://pypi.org/project/jsonpath-ng/1.8.0/" target="_blank" class="expression_tip">Click for details ➜ pypi.org</a>',
       },
     },
     parameterExtractionNode: {

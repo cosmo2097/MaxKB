@@ -6,18 +6,6 @@
     @date：2024/6/6 15:15
     @desc:
 """
-from langchain_core.tools import StructuredTool
-
-from application.flow.common import Workflow, WorkflowMode
-from application.serializers.common import ToolExecute
-from tools.models import ToolRecord, Tool, ToolScope, ToolWorkflowVersion, ToolType
-from maxkb.const import CONFIG
-from knowledge.models.knowledge_action import State
-from knowledge.models import File
-from common.utils.logger import maxkb_logger
-from common.result import result
-from application.flow.i_step_node import WorkFlowPostHandler, ToolWorkflowPostHandler
-from application.flow.backend.sandbox_shell import SandboxShellBackend
 import asyncio
 import io
 import json
@@ -29,15 +17,6 @@ import threading
 import zipfile
 from functools import reduce
 from typing import Iterator
-from pydantic import Field, create_model
-import uuid_utils.compat as uuid
-from asgiref.sync import sync_to_async
-from deepagents import create_deep_agent
-from django.db.models import QuerySet, OuterRef, Subquery
-from django.http import StreamingHttpResponse
-from langchain_core.messages import BaseMessageChunk, BaseMessage, ToolMessage, AIMessageChunk, SystemMessage
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langgraph.checkpoint.memory import MemorySaver
 
 # ---------------------------------------------------------------------------
 # Fix: qwen's OpenAI-compatible streaming sends id='' (empty string) for
@@ -53,7 +32,28 @@ from langgraph.checkpoint.memory import MemorySaver
 # merge with any existing entry, keeping the real id from the first chunk.
 # ---------------------------------------------------------------------------
 import langchain_core.messages.ai as _lc_ai_module
+import uuid_utils.compat as uuid
+from asgiref.sync import sync_to_async
+from deepagents import create_deep_agent
+from django.db.models import QuerySet, OuterRef, Subquery
+from django.http import StreamingHttpResponse
+from langchain_core.messages import BaseMessageChunk, BaseMessage, ToolMessage, AIMessageChunk
+from langchain_core.tools import StructuredTool
 from langchain_core.utils._merge import merge_lists as _original_merge_lists
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langgraph.checkpoint.memory import MemorySaver
+from pydantic import Field, create_model
+
+from application.flow.backend.sandbox_shell import SandboxShellBackend
+from application.flow.common import Workflow, WorkflowMode
+from application.flow.i_step_node import WorkFlowPostHandler, ToolWorkflowPostHandler
+from application.serializers.common import ToolExecute
+from common.result import result
+from common.utils.logger import maxkb_logger
+from knowledge.models import File
+from knowledge.models.knowledge_action import State
+from maxkb.const import CONFIG
+from tools.models import ToolRecord, Tool, ToolScope, ToolWorkflowVersion, ToolType
 
 
 def _merge_lists_normalize_empty_tool_chunk_ids(left, *others):
@@ -303,7 +303,7 @@ def generate_tool_message_complete(icon, name, input_content, output_content):
             "output": output_content
         }
     }
-    return f'<tool_calls_render>{json.dumps(content)}</tool_calls_render>'
+    return f'<tool_calls_render>{json.dumps(content, ensure_ascii=False)}</tool_calls_render>'
 
 
 # 全局单例事件循环
@@ -405,7 +405,8 @@ async def _initialize_skills(mcp_servers, temp_dir):
     return client
 
 
-async def _yield_mcp_response(chat_model, message_list, mcp_servers, mcp_output_enable=True, tool_init_params={},
+async def _yield_mcp_response(chat_model, system_prompt, message_list, mcp_servers, mcp_output_enable=True,
+                              tool_init_params={},
                               source_id=None, source_type=None, temp_dir=None, chat_id=None, extra_tools=None):
     try:
         checkpointer = MemorySaver()
@@ -417,44 +418,12 @@ async def _yield_mcp_response(chat_model, message_list, mcp_servers, mcp_output_
             for tool in extra_tools:
                 tools.append(tool)
 
-        # ---------------------------------------------------------------------------
-        # Fix: vLLM (and Qwen chat templates) reject conversations that contain more
-        # than one SystemMessage, or a SystemMessage that is not the very first
-        # message.  create_deep_agent always prepends its own BASE_AGENT_PROMPT as a
-        # SystemMessage before calling the model (factory.py line ~1319).  If
-        # message_list already contains a SystemMessage (built in base_chat_node.py
-        # via generate_message_list), the API receives two system messages and raises
-        # "System message must be at the beginning."
-        #
-        # Solution: strip the user-supplied SystemMessage out of message_list and
-        # pass its text as the system_prompt argument of create_deep_agent.
-        # deepagents will then merge it with BASE_AGENT_PROMPT into a single
-        # combined system message, so the model only ever sees one.
-        # ---------------------------------------------------------------------------
-        user_system_prompt = None
-        filtered_message_list = []
-        for msg in message_list:
-            if isinstance(msg, SystemMessage):
-                # Normalise content to plain string regardless of whether the
-                # message was built with a str or a list of content blocks.
-                if isinstance(msg.content, str):
-                    user_system_prompt = msg.content
-                elif isinstance(msg.content, list):
-                    user_system_prompt = ''.join(
-                        item.get('text', '') if isinstance(item, dict) else str(item)
-                        for item in msg.content
-                    )
-                else:
-                    user_system_prompt = str(msg.content)
-            else:
-                filtered_message_list.append(msg)
-
         agent = create_deep_agent(
             model=chat_model,
             backend=SandboxShellBackend(root_dir=temp_dir, virtual_mode=True),
             skills=['/skills'],
             tools=tools,
-            system_prompt=user_system_prompt,
+            system_prompt=system_prompt,
             interrupt_on={
                 "write_file": False,
                 "read_file": False,
@@ -465,7 +434,7 @@ async def _yield_mcp_response(chat_model, message_list, mcp_servers, mcp_output_
         recursion_limit = int(CONFIG.get(
             "LANGCHAIN_GRAPH_RECURSION_LIMIT", '100'))
         response = agent.astream(
-            {"messages": filtered_message_list},
+            {"messages": message_list},
             config={"recursion_limit": recursion_limit,
                     "configurable": {"thread_id": chat_id}},
             stream_mode='messages'
@@ -777,8 +746,10 @@ async def save_tool_record(tool_id, tool_info, tool_result, source_id, source_ty
     await sync_to_async(tool_record.save)()
 
 
-def mcp_response_generator(chat_model, message_list, mcp_servers, mcp_output_enable=True, tool_init_params={},
-                           source_id=None, source_type=None, chat_id=None, extra_tools=None):
+def mcp_response_generator(
+        chat_model, system_prompt, message_list, mcp_servers, mcp_output_enable=True,
+        tool_init_params={}, source_id=None, source_type=None, chat_id=None, extra_tools=None
+):
     """使用全局事件循环，不创建新实例"""
     result_queue = queue.Queue()
     loop = get_global_loop()  # 使用共享循环
@@ -794,7 +765,8 @@ def mcp_response_generator(chat_model, message_list, mcp_servers, mcp_output_ena
 
     async def _run():
         try:
-            async_gen = _yield_mcp_response(chat_model, message_list, mcp_servers, mcp_output_enable, tool_init_params,
+            async_gen = _yield_mcp_response(chat_model, system_prompt, message_list, mcp_servers, mcp_output_enable,
+                                            tool_init_params,
                                             source_id, source_type, temp_dir, chat_id, extra_tools)
             async for chunk in async_gen:
                 result_queue.put(('data', chunk))
@@ -843,9 +815,12 @@ target_source_node_mapping = {
               'parameter-extraction-node': lambda n: [n.get('properties').get('node_data').get('model_id')],
               'video-understand-node': lambda n: [n.get('properties').get('node_data').get('model_id')],
               },
-    'KNOWLEDGE': {'search-knowledge-node': lambda n: n.get('properties').get('node_data').get('knowledge_id_list')},
+    'KNOWLEDGE': {'search-knowledge-node': lambda n: n.get('properties').get('node_data').get('knowledge_id_list'),
+                  'search-document-node': lambda n: n.get('properties').get('node_data').get('knowledge_id_list')
+                  },
     'APPLICATION': {
-        'application-node': lambda n: [n.get('properties').get('node_data').get('application_id')]
+        'application-node': lambda n: [n.get('properties').get('node_data').get('application_id')],
+        'ai-chat-node': lambda n: [*(n.get('properties').get('node_data').get('application_ids') or [])],
     }
 }
 
@@ -890,8 +865,12 @@ application_instance_field_call_dict = {
         lambda instance: instance.skill_tool_ids or [],
         lambda instance: instance.tool_ids or []
     ],
+    'APPLICATION': [
+        lambda instance: instance.application_ids or [],
+    ],
     'MODEL': [
         lambda instance: [instance.model_id] if instance.model_id else [],
+        lambda instance: [instance.long_term_model_id] if instance.long_term_model_id else [],
         lambda instance: [
             instance.tts_model_id] if instance.tts_model_id else [],
         lambda instance: [

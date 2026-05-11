@@ -40,6 +40,7 @@ export default {
     paramErrorMessage: '參數已存在: ',
     saveMessage: '當前修改未保存，是否保存後退出？',
     searchPlaceholder: '請輸入節點名稱',
+    disabled: '该节点已被禁用',
   },
   delete: {
     confirmTitle: '確定刪除該節點？',
@@ -86,6 +87,10 @@ export default {
     loopNodeBreakNodeRequired: '無限循環必須存在 Break 節點',
   },
   nodes: {
+    toolWorlflowNode: {
+      label: '工作流工具',
+      text: '工作流工具',
+    },
     knowledgeWriteNode: {
       label: '知識庫寫入',
       text: '將輸入的分段列表寫入當前知識庫，並完成向量化處理',
@@ -492,7 +497,8 @@ export default {
       expression: {
         label: '表達式',
         placeholder: '請輸入表達式',
-        tooltip: '請使用 JSON Path 表達式拆分變量，例如：$.store.book <a href="https://pypi.org/project/jsonpath-ng/1.8.0/" target="_blank" class="expression_tip">點擊查看詳情 ➜ pypi.org</a>',
+        tooltip:
+          '請使用 JSON Path 表達式拆分變量，例如：$.store.book <a href="https://pypi.org/project/jsonpath-ng/1.8.0/" target="_blank" class="expression_tip">點擊查看詳情 ➜ pypi.org</a>',
       },
     },
     parameterExtractionNode: {
