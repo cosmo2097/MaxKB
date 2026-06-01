@@ -6,6 +6,8 @@
     @date：2025/4/14 19:25
     @desc:
 """
+import json
+
 from django.core.cache import cache
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
@@ -17,9 +19,11 @@ from common.auth.authenticate import TokenAuth
 from common.auth.authentication import has_permissions
 from common.constants.cache_version import Cache_Version
 from common.constants.permission_constants import PermissionConstants, Permission, Group, Operate, RoleConstants
+from common.exception.app_exception import AppApiException
 from common.log.log import log
 from common.result import result
 from common.utils.common import query_params_to_single_dict
+from common.utils.rsa_util import decrypt
 from maxkb.const import CONFIG
 from models_provider.api.model import DefaultModelResponse
 from tools.serializers.tool import encryption
@@ -37,7 +41,7 @@ def get_user_operation_object(user_id):
     user_model = QuerySet(model=User).filter(id=user_id).first()
     if user_model is not None:
         return {
-            "name": user_model.name
+            "name": user_model.username
         }
     return {}
 
@@ -46,10 +50,13 @@ def get_re_password_details(request):
     path = request.path
     body = request.data
     query = request.query_params
+    body_copy = dict(body) if hasattr(body, 'items') else body
+    if isinstance(body_copy, dict):
+        body_copy.pop('password', None)
+        body_copy.pop('re_password', None)
     return {
         "path": path,
-        "body": {**body, 'password': encryption(body.get('password', '')),
-                 're_password': encryption(body.get('re_password', ''))},
+        "body": body_copy,
         "query": query
     }
 
@@ -143,7 +150,8 @@ class WorkspaceUserListView(APIView):
                    parameters=WorkspaceUserAPI.get_parameters(),
                    responses=WorkspaceUserAPI.get_response())
     def get(self, request: Request, workspace_id):
-        return result.success(UserManageSerializer().get_user_list(workspace_id))
+        nick_name = request.query_params.get('nick_name', None)
+        return result.success(UserManageSerializer().get_user_list(workspace_id, nick_name))
 
 
 class WorkspaceUserMemberView(APIView):
@@ -299,7 +307,11 @@ class RePasswordView(APIView):
          get_operation_object=lambda r, k: {'name': r.user.username},
          get_details=get_re_password_details)
     def post(self, request: Request):
-        serializer_obj = RePasswordSerializer(data=request.data)
+        request_data = request.data
+        if request_data.get("encrypted", False):
+            request_data['password'] = decrypt(request_data.get('password'))
+            request_data['re_password'] = decrypt(request_data.get('re_password'))
+        serializer_obj = RePasswordSerializer(data=request_data)
         return result.success(serializer_obj.reset_password())
 
 
@@ -371,7 +383,18 @@ class ResetCurrentUserPasswordView(APIView):
     @has_permissions(PermissionConstants.CHANGE_PASSWORD, RoleConstants.ADMIN, RoleConstants.USER,
                      RoleConstants.WORKSPACE_MANAGE)
     def post(self, request: Request):
-        serializer_obj = ResetCurrentUserPassword(data=request.data)
+        request_data = request.data
+        encrypted_data = request_data.get("encryptedData", "")
+        if encrypted_data:
+            try:
+                decrypted_raw = decrypt(encrypted_data)
+                # decrypt 可能返回非 JSON 字符串，防护解析异常
+                decrypted_data = json.loads(decrypted_raw) if decrypted_raw else {}
+                if isinstance(decrypted_data, dict):
+                    request_data = decrypted_data
+            except Exception as e:
+                raise AppApiException(500, _("Invalid encrypted data"))
+        serializer_obj = ResetCurrentUserPassword(data=request_data)
         if serializer_obj.reset_password(request.user.id):
             version, get_key = Cache_Version.TOKEN.value
             cache.delete(get_key(token=request.auth), version=version)
