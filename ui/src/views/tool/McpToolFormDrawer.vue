@@ -18,6 +18,10 @@
         @submit.prevent
       >
         <el-form-item :label="$t('common.name')" prop="name">
+          <template #label>
+            {{ $t('common.name') }}
+            <span class="color-danger">*</span>
+          </template>
           <div class="flex w-full">
             <div
               v-if="form.id"
@@ -272,7 +276,7 @@ const submit = async (formEl: FormInstance | undefined) => {
           })
       } else {
         const obj = {
-          folder_id: folder.currentFolder?.id,
+          folder_id: folder.currentFolder?.id || user.getWorkspaceId() || 'default',
           ...form.value,
         }
         loadSharedApi({ type: 'tool', systemType: apiType.value })

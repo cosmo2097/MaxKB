@@ -354,6 +354,7 @@
                               :type="relatedObject(knowledgeList, item, 'id')?.type"
                               class="mr-8"
                               :size="20"
+                              style="--el-avatar-border-radius: 6px"
                             />
 
                             <span
@@ -439,7 +440,13 @@
                                 alt=""
                               />
                             </el-avatar>
-                            <ToolIcon v-else type="MCP" class="mr-8" :size="20" />
+                            <ToolIcon
+                              v-else
+                              type="MCP"
+                              class="mr-8"
+                              :size="20"
+                              style="--el-avatar-border-radius: 6px"
+                            />
 
                             <div
                               class="ellipsis-1"
@@ -471,7 +478,12 @@
                         style="padding: 5px 8px"
                       >
                         <div class="flex align-center" style="line-height: 20px">
-                          <ToolIcon type="MCP" class="mr-8" :size="20" />
+                          <ToolIcon
+                            type="MCP"
+                            class="mr-8"
+                            :size="20"
+                            style="--el-avatar-border-radius: 6px"
+                          />
                           <div class="ellipsis">
                             {{ $t('common.custom') + ' MCP' }}
                           </div>
@@ -624,7 +636,13 @@
                                 alt=""
                               />
                             </el-avatar>
-                            <ToolIcon v-else class="mr-8" :size="20" type="SKILL" />
+                            <ToolIcon
+                              v-else
+                              class="mr-8"
+                              :size="20"
+                              type="SKILL"
+                              style="--el-avatar-border-radius: 6px"
+                            />
 
                             <div
                               class="ellipsis-1"
@@ -949,7 +967,6 @@ import McpServersDialog from '@/views/application/component/McpServersDialog.vue
 import ToolDialog from '@/views/application/component/ToolDialog.vue'
 import ApplicationDialog from '@/views/application/component/ApplicationDialog.vue'
 import useStore from '@/stores'
-import AppIcon from '@/components/app-icon/AppIcon.vue'
 import LongTermSettingDialog from '@/views/application/component/LongTermSettingDialog.vue'
 const route = useRoute()
 const router = useRouter()

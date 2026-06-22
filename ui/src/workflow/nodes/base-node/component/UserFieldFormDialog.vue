@@ -17,6 +17,7 @@
       :nodeModel="nodeModel"
       :currentNodeFields="currentNodeFields"
       :currentEditingIndex="isEdit ? (currentIndex ?? undefined) : (currentNodeFields?.length ?? 0)"
+      :enableVisibility="true"
       ref="DynamicsFormConstructorRef"
     ></DynamicsFormConstructor>
     <template #footer>
@@ -144,7 +145,7 @@ const inputTypeList = ref([
   { label: t('dynamicsForm.input_type_list.MultiRow'), value: 'MultiRowConstructor' },
   { label: t('dynamicsForm.input_type_list.Model'), value: 'ModelConstructor' },
   { label: t('dynamicsForm.input_type_list.Knowledge'), value: 'KnowledgeConstructor' },
-  { label: t('dynamicsForm.input_type_list.TreeSelect'), value: 'TreeSelectConstructor' },
+  { label: t('dynamicsForm.TreeSelect.label'), value: 'TreeSelectConstructor' },
 ])
 
 const dialogVisible = ref<boolean>(false)

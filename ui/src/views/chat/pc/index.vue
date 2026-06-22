@@ -43,16 +43,16 @@
                 chatUser.chat_profile.authentication_type === 'password'
               "
             >
-              <img src="@/assets/user-icon.svg" style="width: 54%" alt=""/>
+              <img src="@/assets/user-icon.svg" style="width: 54%" alt="" />
             </el-avatar>
             <el-dropdown v-else trigger="click" type="primary" class="w-full">
               <div class="flex align-center">
                 <el-avatar :size="32">
-                  <img src="@/assets/user-icon.svg" style="width: 54%" alt=""/>
+                  <img src="@/assets/user-icon.svg" style="width: 54%" alt="" />
                 </el-avatar>
                 <span v-show="!isPcCollapse" class="ml-8 color-text-primary">{{
-                    chatUser.chatUserProfile?.nick_name
-                  }}</span>
+                  chatUser.chatUserProfile?.nick_name
+                }}</span>
               </div>
 
               <template #dropdown>
@@ -60,7 +60,7 @@
                   <div class="flex align-center p-8">
                     <div class="mr-8 flex align-center">
                       <el-avatar :size="40">
-                        <img src="@/assets/user-icon.svg" style="width: 54%" alt=""/>
+                        <img src="@/assets/user-icon.svg" style="width: 54%" alt="" />
                       </el-avatar>
                     </div>
                     <div>
@@ -84,7 +84,7 @@
                     style="padding-top: 8px; padding-bottom: 8px"
                     @click="logout"
                   >
-                    <AppIcon iconName="app-export" class="color-secondary"/>
+                    <AppIcon iconName="app-export" class="color-secondary" />
                     {{ $t('layout.logout') }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
@@ -99,7 +99,7 @@
           @click="isPcCollapse = !isPcCollapse"
         >
           <el-icon>
-            <component :is="isPcCollapse ? 'ArrowRightBold' : 'ArrowLeftBold'"/>
+            <component :is="isPcCollapse ? 'ArrowRightBold' : 'ArrowLeftBold'" />
           </el-icon>
         </el-button>
       </div>
@@ -124,13 +124,13 @@
                 style="font-size: 16px"
               ></AppIcon>
               <span v-if="paginationConfig.total" class="lighter">
-                {{ paginationConfig.total }} {{ $t('chat.question_count') }}
+                {{ paginationConfig.total }} {{ $t('aiChat.question_count') }}
               </span>
               <el-tooltip
                 effect="dark"
-                :content="$t('chat.share')"
+                :content="$t('aiChat.share')"
                 placement="top"
-                v-if="!showSelection"
+                v-if="!showSelection && applicationDetail.show_share"
               >
                 <el-button
                   text
@@ -143,18 +143,18 @@
               </el-tooltip>
               <el-dropdown class="ml-8" v-if="!showSelection">
                 <el-button text>
-                  <AppIcon iconName="app-export" :title="$t('chat.exportRecords')"></AppIcon>
+                  <AppIcon iconName="app-export" :title="$t('aiChat.exportRecords')"></AppIcon>
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item @click="exportMarkdown"
-                    >{{ $t('common.export') }} Markdown</el-dropdown-item
+                      >{{ $t('common.export') }} Markdown</el-dropdown-item
                     >
                     <el-dropdown-item @click="exportHTML"
-                    >{{ $t('common.export') }} HTML</el-dropdown-item
+                      >{{ $t('common.export') }} HTML</el-dropdown-item
                     >
                     <el-dropdown-item @click="openPDFExport"
-                    >{{ $t('common.export') }} PDF</el-dropdown-item
+                      >{{ $t('common.export') }} PDF</el-dropdown-item
                     >
                   </el-dropdown-menu>
                 </template>
@@ -172,6 +172,7 @@
               :chatId="currentChatId"
               executionIsRightPanel
               @refresh="refresh"
+              @openChat="refresh"
               @scroll="handleScroll"
               @open-execution-detail="openExecutionDetail"
               @openParagraph="openKnowledgeSource"
@@ -208,8 +209,8 @@
               </span> -->
               <span>
                 <el-button text @click="closeExecutionDetail">
-                  <el-icon size="20"><Close/></el-icon
-                  ></el-button>
+                  <el-icon size="20"><Close /></el-icon
+                ></el-button>
               </span>
             </div>
           </div>
@@ -225,7 +226,7 @@
                 :detail="executionDetail"
                 :appType="applicationDetail?.type"
               />
-              <ParagraphDocumentContent :detail="rightPanelDetail" v-else/>
+              <ParagraphDocumentContent :detail="rightPanelDetail" v-else />
             </el-scrollbar>
           </div>
         </div>
@@ -242,36 +243,34 @@
 </template>
 
 <script setup lang="ts">
-import {ref, onMounted, nextTick, computed, watch, provide} from 'vue'
-import {marked} from 'marked'
-import {saveAs} from 'file-saver'
+import { ref, onMounted, nextTick, computed, watch, provide } from 'vue'
+import { marked } from 'marked'
+import { saveAs } from 'file-saver'
+import sanitizeHtml from 'sanitize-html'
 import chatAPI from '@/api/chat/chat'
 import useStore from '@/stores'
 import useResize from '@/layout/hooks/useResize'
-import {hexToRgba} from '@/utils/theme'
-import {useRoute, useRouter} from 'vue-router'
+import { hexToRgba } from '@/utils/theme'
+import { useRoute, useRouter } from 'vue-router'
 import ResetPassword from '@/layout/layout-header/avatar/ResetPassword.vue'
-import {t} from '@/locales'
-import type {ResetCurrentUserPasswordRequest} from '@/api/type/user'
-import ExecutionDetailContent
-  from '@/components/ai-chat/component/knowledge-source-component/ExecutionDetailContent.vue'
-import ParagraphSourceContent
-  from '@/components/ai-chat/component/knowledge-source-component/ParagraphSourceContent.vue'
-import ParagraphDocumentContent
-  from '@/components/ai-chat/component/knowledge-source-component/ParagraphDocumentContent.vue'
+import { t } from '@/locales'
+import type { ResetCurrentUserPasswordRequest } from '@/api/type/user'
+import ExecutionDetailContent from '@/components/ai-chat/component/knowledge-source-component/ExecutionDetailContent.vue'
+import ParagraphSourceContent from '@/components/ai-chat/component/knowledge-source-component/ParagraphSourceContent.vue'
+import ParagraphDocumentContent from '@/components/ai-chat/component/knowledge-source-component/ParagraphDocumentContent.vue'
 import HistoryPanel from '@/views/chat/component/HistoryPanel.vue'
-import {cloneDeep} from 'lodash'
-import {getFileUrl} from '@/utils/common'
+import { ChatManagement } from '@/api/type/application'
+import { cloneDeep } from 'lodash'
+import { getFileUrl } from '@/utils/common'
 import PdfExport from '@/components/pdf-export/index.vue'
-import JSEncrypt from "jsencrypt";
+import JSEncrypt from 'jsencrypt'
 
-const {user} = useStore()
 useResize()
 
 provide('scrollData', loadInfiniteScroll)
 provide('chatLogPagination', () => chatLogPagination)
 const pdfExportRef = ref<InstanceType<typeof PdfExport>>()
-const {common, chatUser} = useStore()
+const { common, chatUser } = useStore()
 const router = useRouter()
 const openPDFExport = () => {
   pdfExportRef.value?.open(document.getElementById('chatListId'))
@@ -306,13 +305,13 @@ const openResetPassword = () => {
 }
 
 const handleResetPassword = (param: ResetCurrentUserPasswordRequest) => {
-  const JSEncryptCtor = (JSEncrypt as any)?.default ? (JSEncrypt as any).default : JSEncrypt;
-  const js = new (JSEncryptCtor as any)();
-  js.setPublicKey(user.rsaKey);
-  const jsonData = JSON.stringify(param);
-  const encryptedBase64 = js.encrypt(jsonData);
-  chatAPI.resetCurrentPassword({encryptedData: encryptedBase64}).then(() => {
-    router.push({name: 'login'})
+  const JSEncryptCtor = (JSEncrypt as any)?.default ? (JSEncrypt as any).default : JSEncrypt
+  const js = new (JSEncryptCtor as any)()
+  js.setPublicKey(chatUser?.chat_profile?.rsaKey)
+  const jsonData = JSON.stringify(param)
+  const encryptedBase64 = js.encrypt(jsonData)
+  chatAPI.resetCurrentPassword({ encryptedData: encryptedBase64 }).then(() => {
+    router.push({ name: 'login' })
   })
 }
 
@@ -325,7 +324,7 @@ const classObj = computed(() => {
 
 const newObj = {
   id: 'new',
-  abstract: t('chat.createChat'),
+  abstract: t('aiChat.createChat'),
 }
 const props = defineProps<{
   application_profile: any
@@ -339,8 +338,7 @@ const applicationDetail = computed({
   get: () => {
     return props.application_profile
   },
-  set: (v) => {
-  },
+  set: (v) => {},
 })
 
 const chatLogData = ref<any[]>([])
@@ -353,7 +351,7 @@ const paginationConfig = ref({
 
 const currentRecordList = ref<any>([])
 const currentChatId = ref('new') // 当前历史记录Id 默认为'new'
-const currentChatName = ref(t('chat.createChat'))
+const currentChatName = ref(t('aiChat.createChat'))
 
 function refreshFieldTitle(chatId: string, abstract: string) {
   const find = chatLogData.value.find((item: any) => item.id == chatId)
@@ -366,7 +364,7 @@ function deleteLog(row: any) {
   chatAPI.deleteChat(row.id).then(() => {
     if (currentChatId.value === row.id) {
       currentChatId.value = 'new'
-      currentChatName.value = t('chat.createChat')
+      currentChatName.value = t('aiChat.createChat')
       paginationConfig.value.current_page = 1
       paginationConfig.value.total = 0
       currentRecordList.value = []
@@ -378,7 +376,7 @@ function deleteLog(row: any) {
 function clearChat() {
   chatAPI.clearChat(left_loading).then(() => {
     currentChatId.value = 'new'
-    currentChatName.value = t('chat.createChat')
+    currentChatName.value = t('aiChat.createChat')
     paginationConfig.value.current_page = 1
     paginationConfig.value.total = 0
     currentRecordList.value = []
@@ -416,7 +414,7 @@ function newChat() {
   }
   closeExecutionDetail()
   currentChatId.value = 'new'
-  currentChatName.value = t('chat.createChat')
+  currentChatName.value = t('aiChat.createChat')
 }
 
 const chatLogPagination = ref({
@@ -438,13 +436,33 @@ function getChatLog(refresh?: boolean) {
         paginationConfig.value.total = 0
         currentRecordList.value = []
         currentChatId.value = 'new'
-        currentChatName.value = t('chat.createChat')
+        currentChatName.value = t('aiChat.createChat')
       }
     })
 }
 
 function loadInfiniteScroll() {
   getChatLog(true)
+}
+
+/**
+ * 切回会话时, 把内存中属于该会话、仍在后台流式输出的在途消息接回列表,
+ * 这样切走时没被打断的流, 切回来能继续实时显示。
+ * - 与 DB 记录 record_id 相同的, 用 live 对象覆盖(否则会显示落库前的空答案)
+ * - DB 里还没有的(尚未落库), 追加到末尾
+ */
+function attachActiveStreams() {
+  const activeChats = ChatManagement.getActiveByChatId(currentChatId.value)
+  if (!activeChats.length) {
+    return
+  }
+  const activeMap = new Map(activeChats.map((chat) => [chat.record_id, chat]))
+  const existIds = new Set(currentRecordList.value.map((v: any) => v.record_id))
+  const merged = currentRecordList.value.map((v: any) =>
+    activeMap.has(v.record_id) ? activeMap.get(v.record_id) : v,
+  )
+  const appendList = activeChats.filter((chat) => !existIds.has(chat.record_id))
+  currentRecordList.value = [...merged, ...appendList]
 }
 
 function getChatRecord() {
@@ -466,6 +484,7 @@ function getChatRecord() {
         a.create_time.localeCompare(b.create_time),
       )
       if (paginationConfig.value.current_page === 1) {
+        attachActiveStreams()
         nextTick(() => {
           // 将滚动条滚动到最下面
           AiChatRef.value.setScrollBottom()
@@ -521,7 +540,7 @@ async function exportMarkdown(): Promise<void> {
     })
     .join('\n')
 
-  const blob: Blob = new Blob([markdownContent], {type: 'text/markdown;charset=utf-8'})
+  const blob: Blob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' })
   saveAs(blob, suggestedName)
 }
 
@@ -541,9 +560,51 @@ async function exportHTML(): Promise<void> {
       return `# ${record.problem_text}\n\n${answerText}\n\n`
     })
     .join('\n')
-  const htmlContent: any = marked(markdownContent)
+  const rawHtmlContent = await marked(markdownContent)
+  const htmlContent = sanitizeHtml(rawHtmlContent, {
+    allowedTags: [
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'p',
+      'br',
+      'hr',
+      'blockquote',
+      'pre',
+      'code',
+      'em',
+      'strong',
+      'del',
+      'ul',
+      'ol',
+      'li',
+      'table',
+      'thead',
+      'tbody',
+      'tr',
+      'th',
+      'td',
+      'a',
+      'img',
+    ],
+    allowedAttributes: {
+      a: ['href', 'name', 'target', 'title'],
+      img: ['src', 'alt', 'title'],
+      code: ['class'],
+      th: ['align'],
+      td: ['align'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto', 'tel'],
+    allowedSchemesByTag: {
+      img: ['http', 'https'],
+    },
+    allowProtocolRelative: false,
+  })
 
-  const blob: Blob = new Blob([htmlContent], {type: 'text/html;charset=utf-8'})
+  const blob: Blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
   saveAs(blob, suggestedName)
 }
 
@@ -566,7 +627,7 @@ const rightPanelDetail = ref<any>()
 
 async function openExecutionDetail(row: any) {
   rightPanelSize.value = 400
-  rightPanelTitle.value = t('chat.executionDetails.title')
+  rightPanelTitle.value = t('aiChat.executionDetails.title')
   rightPanelType.value = 'executionDetail'
   if (row.execution_details) {
     executionDetail.value = cloneDeep(row.execution_details)
@@ -577,7 +638,7 @@ async function openExecutionDetail(row: any) {
 }
 
 async function openKnowledgeSource(row: any) {
-  rightPanelTitle.value = t('chat.KnowledgeSource.title')
+  rightPanelTitle.value = t('aiChat.KnowledgeSource.title')
   rightPanelType.value = 'knowledgeSource'
   rightPanelDetail.value = row
   rightPanelSize.value = 400

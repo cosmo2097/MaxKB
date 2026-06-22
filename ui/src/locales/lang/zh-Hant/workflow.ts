@@ -118,7 +118,6 @@ export default {
     classify: {
       aiCapability: 'AI 能力',
       businessLogic: '業務邏輯',
-      other: '其他',
       dataProcessing: '數據處理',
     },
     startNode: {
@@ -157,6 +156,9 @@ export default {
       label: 'AI 對話',
       text: '與 AI 大模型進行對話',
       answer: 'AI 回答內容',
+      vision: {
+        label: '視覺',
+      },
       returnContent: {
         label: '返回內容',
         tooltip: `關閉後該節點的內容則不輸出給用戶。
@@ -443,7 +445,6 @@ export default {
     intentNode: {
       label: '意圖識別',
       text: '將用戶問題與用戶預設的意圖分類進行匹配',
-      other: '其他',
       error2: '意圖重複',
       placeholder: '請選擇分類項',
       classify: {

@@ -11,20 +11,7 @@ from typing import Dict, List
 import openpyxl
 import uuid_utils.compat as uuid
 from celery_once import AlreadyQueued
-from django.contrib.postgres.fields import JSONField
-from django.core import validators
-from django.db import transaction, models
-from django.db.models import QuerySet, Func, F, Value
-from django.db.models.aggregates import Max
-from django.db.models.functions import Substr, Reverse
-from django.db.models.query_utils import Q
-from django.http import HttpResponse
-from django.utils.translation import gettext_lazy as _, gettext, get_language, to_locale
-from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
-from rest_framework import serializers
-from xlwt import Utils
-
-from common.db.search import native_search, get_dynamics_model, native_page_search
+from common.db.search import get_dynamics_model, native_page_search, native_search
 from common.event.common import work_thread_pool
 from common.event.listener_manage import ListenerManagement
 from common.exception.app_exception import AppApiException
@@ -45,50 +32,65 @@ from common.handle.impl.text.text_split_handle import TextSplitHandle
 from common.handle.impl.text.xls_split_handle import XlsSplitHandle
 from common.handle.impl.text.xlsx_split_handle import XlsxSplitHandle
 from common.handle.impl.text.zip_split_handle import ZipSplitHandle
-from common.utils.common import post, get_file_content, bulk_create_in_batches, parse_image
+from common.utils.common import bulk_create_in_batches, get_file_content, parse_image, post
 from common.utils.fork import Fork
 from common.utils.logger import maxkb_logger
-from common.utils.split_model import get_split_model, flat_map
+from common.utils.split_model import flat_map, get_split_model
+from django.contrib.postgres.fields import JSONField
+from django.core import validators
+from django.db import models, transaction
+from django.db.models import F, Func, QuerySet, Value
+from django.db.models.aggregates import Max
+from django.db.models.functions import Coalesce, NullIf, Reverse, Substr
+from django.db.models.query_utils import Q
+from django.http import HttpResponse
+from django.utils.translation import get_language, gettext, to_locale
+from django.utils.translation import gettext_lazy as _
+from maxkb.const import PROJECT_DIR
+from models_provider.models import Model
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from oss.serializers.file import FileSerializer
+from rest_framework import serializers
+from xlwt import Utils
+
 from knowledge.models import (
-    Knowledge,
-    Paragraph,
-    Problem,
     Document,
-    KnowledgeType,
-    ProblemParagraphMapping,
-    State,
-    TaskType,
+    DocumentTag,
     File,
     FileSourceType,
+    Knowledge,
+    KnowledgeType,
+    Paragraph,
+    Problem,
+    ProblemParagraphMapping,
+    State,
     Tag,
-    DocumentTag,
+    TaskType,
 )
 from knowledge.serializers.common import (
-    ProblemParagraphManage,
     BatchSerializer,
-    get_embedding_model_id_by_knowledge_id,
     MetaSerializer,
+    ProblemParagraphManage,
+    get_embedding_model_id_by_knowledge_id,
     write_image,
     zip_dir,
 )
 from knowledge.serializers.paragraph import (
-    ParagraphSerializers,
     ParagraphInstanceSerializer,
+    ParagraphSerializers,
     delete_problems_and_mappings,
 )
 from knowledge.task.embedding import (
-    embedding_by_document,
-    delete_embedding_by_document_list,
     delete_embedding_by_document,
+    delete_embedding_by_document_list,
     delete_embedding_by_paragraph_ids,
+    embedding_by_document,
     embedding_by_document_list,
+    tokenize_by_document,
     update_embedding_knowledge_id,
 )
 from knowledge.task.generate import generate_related_by_document_id
 from knowledge.task.sync import sync_web_document
-from maxkb.const import PROJECT_DIR
-from models_provider.models import Model
-from oss.serializers.file import FileSerializer
 
 default_split_handle = TextSplitHandle()
 split_handles = [
@@ -273,7 +275,7 @@ class DocumentSerializers(serializers.Serializer):
             if self.data.get("type") == "csv":
                 file = open(
                     os.path.join(
-                        PROJECT_DIR, "apps", "knowledge", "template", f"csv_template_{to_locale(language)}.csv"
+                        PROJECT_DIR, "apps", "knowledge", "template", f"csv_template_{language}.csv"
                     ),
                     "rb",
                 )
@@ -290,7 +292,7 @@ class DocumentSerializers(serializers.Serializer):
             elif self.data.get("type") == "excel":
                 file = open(
                     os.path.join(
-                        PROJECT_DIR, "apps", "knowledge", "template", f"excel_template_{to_locale(language)}.xlsx"
+                        PROJECT_DIR, "apps", "knowledge", "template", f"excel_template_{language}.xlsx"
                     ),
                     "rb",
                 )
@@ -314,7 +316,7 @@ class DocumentSerializers(serializers.Serializer):
             if self.data.get("type") == "csv":
                 file = open(
                     os.path.join(
-                        PROJECT_DIR, "apps", "knowledge", "template", f"table_template_{to_locale(language)}.csv"
+                        PROJECT_DIR, "apps", "knowledge", "template", f"table_template_{language}.csv"
                     ),
                     "rb",
                 )
@@ -331,7 +333,7 @@ class DocumentSerializers(serializers.Serializer):
             elif self.data.get("type") == "excel":
                 file = open(
                     os.path.join(
-                        PROJECT_DIR, "apps", "knowledge", "template", f"table_template_{to_locale(language)}.xlsx"
+                        PROJECT_DIR, "apps", "knowledge", "template", f"table_template_{language}.xlsx"
                     ),
                     "rb",
                 )
@@ -485,6 +487,7 @@ class DocumentSerializers(serializers.Serializer):
         )
         no_tag = serializers.BooleanField(required=False, default=False, allow_null=True)
         tag_exclude = serializers.BooleanField(required=False, default=False, allow_null=True)
+        create_user = serializers.UUIDField(required=False, allow_null=True)
 
         def get_query_set(self):
             query_set = QuerySet(model=Document)
@@ -538,6 +541,8 @@ class DocumentSerializers(serializers.Serializer):
                     .values_list("document_id", flat=True)
                 )
                 query_set = query_set.filter(id__in=document_id_list)
+            if "create_user" in self.data and self.data.get("create_user") is not None:
+                query_set = query_set.filter(**{"user_id": self.data.get("create_user")})
             order_by = self.data.get("order_by", "")
             order_by_query_set = QuerySet(
                 model=get_dynamics_model(
@@ -875,6 +880,44 @@ class DocumentSerializers(serializers.Serializer):
             except AlreadyQueued as e:
                 raise AppApiException(500, _("The task is being executed, please do not send it repeatedly."))
 
+        def tokenize(self, state_list=None, with_valid=True):
+            if state_list is None:
+                state_list = [
+                    State.PENDING.value,
+                    State.STARTED.value,
+                    State.SUCCESS.value,
+                    State.FAILURE.value,
+                    State.REVOKE.value,
+                    State.REVOKED.value,
+                    State.IGNORED.value,
+                ]
+            if with_valid:
+                self.is_valid(raise_exception=True)
+            document_id = self.data.get("document_id")
+            ListenerManagement.update_status(
+                QuerySet(Document).filter(id=document_id), TaskType.TOKENIZE, State.PENDING
+            )
+            ListenerManagement.update_status(
+                QuerySet(Paragraph)
+                .annotate(
+                    reversed_status=Reverse("status"),
+                    task_type_status=Coalesce(
+                        NullIf(Substr("reversed_status", TaskType.TOKENIZE.value, 1), Value("")),
+                        Value("n"),
+                    ),
+                )
+                .filter(task_type_status__in=state_list, document_id=document_id)
+                .values("id"),
+                TaskType.TOKENIZE,
+                State.PENDING,
+            )
+            ListenerManagement.get_aggregation_document_status(document_id)()
+
+            try:
+                tokenize_by_document.delay(document_id, state_list)
+            except AlreadyQueued as e:
+                raise AppApiException(500, _("The task is being executed, please do not send it repeatedly."))
+
         @staticmethod
         def get_workbook(data_dict, document_dict):
             # 创建工作簿对象
@@ -956,6 +999,7 @@ class DocumentSerializers(serializers.Serializer):
     class Create(serializers.Serializer):
         workspace_id = serializers.CharField(required=False, label=_("workspace id"), allow_null=True)
         knowledge_id = serializers.UUIDField(required=True, label=_("document id"))
+        user_id = serializers.UUIDField(required=False, label=_("user id"), allow_null=True)
 
         def is_valid(self, *, raise_exception=False):
             super().is_valid(raise_exception=True)
@@ -975,7 +1019,8 @@ class DocumentSerializers(serializers.Serializer):
                 DocumentInstanceSerializer(data=instance).is_valid(raise_exception=True)
                 self.is_valid(raise_exception=True)
             knowledge_id = self.data.get("knowledge_id")
-            document_paragraph_model = self.get_document_paragraph_model(knowledge_id, instance)
+            user_id = self.data.get("user_id")
+            document_paragraph_model = self.get_document_paragraph_model(knowledge_id, user_id, instance)
 
             document_model = document_paragraph_model.get("document")
             paragraph_model_list = document_paragraph_model.get("paragraph_model_list")
@@ -1036,7 +1081,7 @@ class DocumentSerializers(serializers.Serializer):
             }
 
         @staticmethod
-        def get_document_paragraph_model(knowledge_id, instance: Dict):
+        def get_document_paragraph_model(knowledge_id, user_id, instance: Dict):
             source_meta = {"source_file_id": instance.get("source_file_id")} if instance.get("source_file_id") else {}
             meta = {**instance.get("meta"), **source_meta} if instance.get("meta") is not None else source_meta
             meta = {**convert_uuid_to_str(meta), "allow_download": True}
@@ -1051,6 +1096,7 @@ class DocumentSerializers(serializers.Serializer):
                     ),
                     "meta": meta,
                     "type": instance.get("type") if instance.get("type") is not None else KnowledgeType.BASE,
+                    "user_id": user_id,
                 }
             )
 
@@ -1063,9 +1109,10 @@ class DocumentSerializers(serializers.Serializer):
                 DocumentWebInstanceSerializer(data=instance).is_valid(raise_exception=True)
                 self.is_valid(raise_exception=True)
             knowledge_id = self.data.get("knowledge_id")
+            user_id = self.data.get("user_id")
             source_url_list = instance.get("source_url_list")
             selector = instance.get("selector")
-            sync_web_document.delay(knowledge_id, source_url_list, selector)
+            sync_web_document.delay(knowledge_id, user_id, source_url_list, selector)
 
         def save_qa(self, instance: Dict, with_valid=True):
             if with_valid:
@@ -1074,7 +1121,11 @@ class DocumentSerializers(serializers.Serializer):
             file_list = instance.get("file_list")
             document_list = flat_map([self.parse_qa_file(file) for file in file_list])
             return DocumentSerializers.Batch(
-                data={"knowledge_id": self.data.get("knowledge_id"), "workspace_id": self.data.get("workspace_id")}
+                data={
+                    "knowledge_id": self.data.get("knowledge_id"),
+                    "workspace_id": self.data.get("workspace_id"),
+                    "user_id": self.data.get("user_id"),
+                }
             ).batch_save(document_list)
 
         def save_table(self, instance: Dict, with_valid=True):
@@ -1084,7 +1135,11 @@ class DocumentSerializers(serializers.Serializer):
             file_list = instance.get("file_list")
             document_list = flat_map([self.parse_table_file(file) for file in file_list])
             return DocumentSerializers.Batch(
-                data={"knowledge_id": self.data.get("knowledge_id"), "workspace_id": self.data.get("workspace_id")}
+                data={
+                    "knowledge_id": self.data.get("knowledge_id"),
+                    "workspace_id": self.data.get("workspace_id"),
+                    "user_id": self.data.get("user_id"),
+                }
             ).batch_save(document_list)
 
         def parse_qa_file(self, file):
@@ -1257,6 +1312,7 @@ class DocumentSerializers(serializers.Serializer):
     class Batch(serializers.Serializer):
         workspace_id = serializers.CharField(required=True, label=_("workspace id"))
         knowledge_id = serializers.UUIDField(required=True, label=_("knowledge id"))
+        user_id = serializers.UUIDField(required=False, label=_("user id"), allow_null=True)
 
         def is_valid(self, *, raise_exception=False):
             super().is_valid(raise_exception=True)
@@ -1315,7 +1371,7 @@ class DocumentSerializers(serializers.Serializer):
             # 插入文档
             for document in instance_list:
                 document_paragraph_dict_model = DocumentSerializers.Create.get_document_paragraph_model(
-                    knowledge_id, document
+                    knowledge_id, self.data.get("user_id"), document
                 )
                 # 保存文档和文件的关系
                 document_instance = document_paragraph_dict_model.get("document")

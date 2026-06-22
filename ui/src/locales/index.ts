@@ -14,19 +14,6 @@ const langModuleMap = new Map<string, Record<string, any>>()
 export const langCode: string[] = []
 export const localeConfigKey = 'MaxKB-locale'
 
-const DEFAULT_EXTERNAL_LOCALES = [
-  'ja',
-  'ko-KR',
-  'de-DE',
-  'fr-FR',
-  'es-ES',
-  'ru-RU',
-  'pt-BR',
-  'it-IT',
-  'th-TH',
-  'vi-VN'
-]
-
 const languages = usePreferredLanguages()
 
 export function getBrowserLang() {
@@ -71,7 +58,7 @@ export const i18n = createI18n({
   locale: useLocalStorage(localeConfigKey, getBrowserLang()).value || getBrowserLang(),
   fallbackLocale: getBrowserLang(),
   messages: importMessages.value,
-  globalInjection: true
+  globalInjection: true,
 })
 
 // 外置语言包目录（相对于 public 目录）
@@ -81,13 +68,18 @@ async function discoverExternalLocales(): Promise<string[]> {
   try {
     const response = await fetch(`${EXTERNAL_LOCALES_DIR}/index.json`)
     if (!response.ok) {
-      return DEFAULT_EXTERNAL_LOCALES
+      console.warn('Failed to fetch external locales index, returning empty array')
+      return []
+    }
+    if (!response.headers.get('content-type')?.includes('application/json')) {
+      return []
     }
 
     const index = await response.json()
-    return Array.isArray(index.locales) ? index.locales : DEFAULT_EXTERNAL_LOCALES
-  } catch {
-    return DEFAULT_EXTERNAL_LOCALES
+    return Array.isArray(index.locales) ? index.locales : []
+  } catch (error) {
+    console.warn('Error discovering external locales:', error)
+    return []
   }
 }
 
@@ -128,7 +120,7 @@ export const langList = computed(() => {
   langModuleMap.forEach((value, key) => {
     list.push({
       label: value.lang || key,
-      value: key
+      value: key,
     })
   })
 
@@ -137,7 +129,7 @@ export const langList = computed(() => {
     const messages = i18n.global.getLocaleMessage(locale) as Record<string, any>
     list.push({
       label: messages?.lang || locale,
-      value: locale
+      value: locale,
     })
   })
 

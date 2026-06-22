@@ -1,6 +1,15 @@
 <template>
   <div class="document p-16-24">
-    <h2 class="mb-16">{{ $t('自定义分词') }}</h2>
+    <h2 class="flex align-center mb-16">
+      {{ $t('views.knowledge.customSegmentation.title') }}
+      <el-tooltip
+        effect="dark"
+        :content="$t('views.knowledge.customSegmentation.tip')"
+        placement="right"
+      >
+        <AppIcon iconName="app-problems" class="color-secondary ml-4"></AppIcon>
+      </el-tooltip>
+    </h2>
     <el-card style="--el-card-padding: 0">
       <div class="main-calc-height">
         <div class="p-24">
@@ -11,20 +20,17 @@
                 @click="createTermbase"
                 v-if="permissionPrecise.termbase_create(id)"
               >
-                {{ $t('创建词语') }}
+                {{ $t('views.knowledge.customSegmentation.create') }}
               </el-button>
               <el-button
                 @click="deleteMulDocument"
                 :disabled="multipleSelection.length === 0"
                 v-if="permissionPrecise.termbase_delete(id)"
               >
-                {{ $t('批量删除') }}
+                {{ $t('views.problem.setting.batchDelete') }}
               </el-button>
-              <el-button
-                @click="exportMulTermbase"
-                :disabled="multipleSelection.length === 0"
-              >
-                {{ $t('导出') }}
+              <el-button @click="exportMulTermbase" :disabled="multipleSelection.length === 0">
+                {{ $t('common.export') }}
               </el-button>
             </div>
 
@@ -43,8 +49,8 @@
             :data="termbaseData"
             :pagination-config="paginationConfig"
             :quick-create="permissionPrecise.termbase_create(id)"
-            :quickCreateName="$t('快速创建词语')"
-            :quickCreatePlaceholder="$t('快速创建词语')"
+            :quickCreateName="$t('views.knowledge.customSegmentation.quickCreate')"
+            :quickCreatePlaceholder="$t('views.knowledge.customSegmentation.quickCreate')"
             :quickCreateMaxlength="256"
             @sizeChange="handleSizeChange"
             @changePage="getList"
@@ -57,7 +63,11 @@
             :row-key="(row: any) => row.id"
           >
             <el-table-column type="selection" width="55" :reserve-selection="true" />
-            <el-table-column prop="content" :label="$t('词语')" min-width="280">
+            <el-table-column
+              prop="content"
+              :label="$t('views.knowledge.customSegmentation.word')"
+              min-width="280"
+            >
               <template #default="{ row }">
                 <ReadWrite
                   @change="editName($event, row.id)"
@@ -109,7 +119,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, onBeforeUnmount, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElTable } from 'element-plus'
+import type { TableInstance } from 'element-plus'
 import CreateTermBaseDialog from './component/CreateTermbaseDialog.vue'
 import { datetimeFormat } from '@/utils/time'
 import { MsgSuccess, MsgConfirm, MsgError } from '@/utils/message'
@@ -161,7 +171,7 @@ const paginationConfig = reactive({
 const filterText = ref('')
 const termbaseData = ref<any[]>([])
 
-const multipleTableRef = ref<InstanceType<typeof ElTable>>()
+const multipleTableRef = ref<TableInstance>()
 const multipleSelection = ref<any[]>([])
 
 function exportMulTermbase(row?: any) {

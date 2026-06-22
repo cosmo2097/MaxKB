@@ -1,6 +1,6 @@
 <template>
   <div class="folder-tree">
-    <div class="flex ml-4 p-8 pb-0">
+    <div class="flex p-16 pb-0 folder-tree__search">
       <el-input
         v-model="filterText"
         :placeholder="$t('common.search')"
@@ -35,7 +35,7 @@
       </el-dropdown>
     </div>
     <div class="p-8 pb-0" v-if="showShared && hasPermission(EditionConst.IS_EE, 'OR')">
-      <div class="border-b">
+      <div class="border-b pt-0 pb-0">
         <div
           @click="handleSharedNodeClick"
           class="shared-button flex cursor border-r-6"

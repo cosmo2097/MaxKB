@@ -185,6 +185,7 @@ class Operate(Enum):
     TO_CHAT = "READ+TO_CHAT"  # 去对话
     SETTING = "READ+SETTING"  # 管理
     DOWNLOAD = "READ+DOWNLOAD"  # 下载
+    COPY = "READ+COPY"
     AUTH = "READ+AUTH"  # 资源授权
     TAG = "READ+TAG"  # 标签设置
     REPLACE = "READ+REPLACE"  # 标签设置
@@ -341,6 +342,7 @@ Permission_Label = {
     WorkspaceGroup.OTHER.value: _("Other"),
     Operate.READ.value: _("Read"),
     Operate.EDIT.value: _("Edit"),
+    Operate.COPY.value: _('Copy'),
     Operate.PUBLISH.value: _("Publish"),
     Operate.CREATE.value: _("Create"),
     Operate.DELETE.value: _("Delete"),
@@ -348,6 +350,7 @@ Permission_Label = {
     Group.APPLICATION.value: _("Application"),
     Group.KNOWLEDGE.value: _("Knowledge"),
     Group.KNOWLEDGE_DOCUMENT.value: _("Document"),
+    Group.KNOWLEDGE_TERMBASE.value: _("Termbase"),
     Group.KNOWLEDGE_WORKFLOW.value: _("Workflow"),
     Group.KNOWLEDGE_TAG.value: _("Tag"),
     Group.KNOWLEDGE_PROBLEM.value: _("Problem"),
@@ -404,6 +407,7 @@ Permission_Label = {
     Group.SYSTEM_MODEL.value: _("Model"),
     Group.SYSTEM_KNOWLEDGE.value: _("Knowledge"),
     Group.SYSTEM_KNOWLEDGE_DOCUMENT.value: _("Document"),
+    Group.SYSTEM_KNOWLEDGE_TERMBASE.value: _("Termbase"),
     Group.SYSTEM_KNOWLEDGE_WORKFLOW.value: _("Workflow"),
     Group.SYSTEM_KNOWLEDGE_TAG.value: _("Tag"),
     Group.SYSTEM_KNOWLEDGE_PROBLEM.value: _("Problem"),
@@ -413,6 +417,7 @@ Permission_Label = {
     Group.SYSTEM_RES_MODEL.value: _("Model"),
     Group.SYSTEM_RES_KNOWLEDGE.value: _("Knowledge"),
     Group.SYSTEM_RES_KNOWLEDGE_DOCUMENT.value: _("Document"),
+    Group.SYSTEM_RES_KNOWLEDGE_TERMBASE.value: _("Termbase"),
     Group.SYSTEM_RES_KNOWLEDGE_WORKFLOW.value: _("Workflow"),
     Group.SYSTEM_RES_KNOWLEDGE_TAG.value: _("Tag"),
     Group.SYSTEM_RES_KNOWLEDGE_PROBLEM.value: _("Problem"),
@@ -1071,6 +1076,11 @@ class PermissionConstants(Enum):
                                     parent_group=[WorkspaceGroup.APPLICATION, UserGroup.APPLICATION],
                                     resource_permission_group_list=[ResourcePermissionConst.APPLICATION_MANGE],
                                     )
+    APPLICATION_COPY = Permission(group=Group.APPLICATION, operate=Operate.COPY,
+                                  role_list=[RoleConstants.ADMIN, RoleConstants.USER],
+                                  parent_group=[WorkspaceGroup.APPLICATION, UserGroup.APPLICATION],
+                                  resource_permission_group_list=[ResourcePermissionConst.APPLICATION_MANGE],
+                                  )
     APPLICATION_EDIT = Permission(group=Group.APPLICATION, operate=Operate.EDIT,
                                   role_list=[RoleConstants.ADMIN, RoleConstants.USER],
                                   parent_group=[WorkspaceGroup.APPLICATION, UserGroup.APPLICATION],
@@ -1645,6 +1655,11 @@ class PermissionConstants(Enum):
     )
     RESOURCE_APPLICATION_EXPORT = Permission(
         group=Group.SYSTEM_RES_APPLICATION, operate=Operate.EXPORT, role_list=[RoleConstants.ADMIN],
+        parent_group=[SystemGroup.RESOURCE_APPLICATION], is_ee=settings.edition == "EE"
+    )
+    RESOURCE_APPLICATION_COPY = Permission(
+        group=Group.SYSTEM_RES_APPLICATION, operate=Operate.COPY,
+        role_list=[RoleConstants.ADMIN],
         parent_group=[SystemGroup.RESOURCE_APPLICATION], is_ee=settings.edition == "EE"
     )
     RESOURCE_APPLICATION_AUTH = Permission(

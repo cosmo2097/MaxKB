@@ -66,12 +66,13 @@
       placement="top"
       v-if="theme.themeInfo?.showForum"
     >
-      <AppIcon
-        iconName="app-help"
-        class="cursor color-secondary mr-8 ml-8"
-        style="font-size: 20px"
-        @click="toUrl(theme.themeInfo?.forumUrl)"
-      ></AppIcon>
+      <el-button text @click="toUrl(theme.themeInfo?.forumUrl)">
+        <AppIcon
+          iconName="app-problems"
+          class="cursor color-secondary"
+          style="font-size: 20px"
+        ></AppIcon>
+      </el-button>
     </el-tooltip>-->
   </div>
 </template>
@@ -98,7 +99,7 @@ function toUrl(url: string) {
     padding: 6px !important;
   }
   .el-button + .el-button {
-    margin-left: 4px !important;
+    margin-left: 8px !important;
   }
   .active {
     background-color: #ffffff;

@@ -8,8 +8,8 @@ export default {
     migration: 'Move',
     cancelGenerateQuestion: 'Cancel Generating Questions',
     cancelVectorization: 'Cancel Vectorization',
+    cancelTokenize: 'Cancel Tokenize',
     cancelGenerate: 'Cancel Generation',
-    export: 'Export to',
     exportDocument: 'Export Document',
     exportKnowledge: 'Export Knowledge',
     download: 'Download',
@@ -17,6 +17,9 @@ export default {
   },
 
   tip: {
+    exportSimultaneously: 'Export Source Files',
+    exportSimultaneouslyTip:
+      'By checking this option, the original files will be packaged together with the ZIP file, allowing automatic restoration of file associations upon import; if unchecked, only the text content will be exported.',
     saveMessage: 'Current changes have not been saved. Confirm exit?',
     cancelSuccess: 'Successful',
     sendMessage: 'Successful',
@@ -138,6 +141,7 @@ export default {
     PENDING: 'Queuing',
     GENERATE: 'Generating',
     SYNC: 'Syncing',
+    TOKENIZE: 'Tokenizing',
     finish: 'Finish',
   },
   enableStatus: {

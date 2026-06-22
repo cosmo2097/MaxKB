@@ -3,7 +3,7 @@
     <div class="flex-between cursor" @click="data['show'] = !data['show']">
       <div class="flex align-center">
         <el-icon class="mr-8 arrow-icon" :class="data['show'] ? 'rotate-90' : ''">
-          <CaretRight/>
+          <CaretRight />
         </el-icon>
         <component
           :is="iconComponent(`${data.type}-icon`)"
@@ -25,19 +25,19 @@
             data.type == WorkflowType.IntentNode ||
             data.type === WorkflowType.VideoUnderstandNode
           "
-        >{{ data?.message_tokens + data?.answer_tokens }} tokens</span
+          >{{ data?.message_tokens + data?.answer_tokens }} tokens</span
         >
         <span class="mr-16 color-secondary" v-if="data.status != 202"
-        >{{ data?.run_time?.toFixed(2) || 0.0 }} s</span
+          >{{ data?.run_time?.toFixed(2) || 0.0 }} s</span
         >
         <el-icon class="color-success" :size="16" v-if="data.status === 200">
-          <CircleCheck/>
+          <CircleCheck />
         </el-icon>
         <el-icon class="is-loading" :size="16" v-else-if="data.status === 202">
-          <Loading/>
+          <Loading />
         </el-icon>
         <el-icon class="color-danger" :size="16" v-else>
-          <CircleClose/>
+          <CircleClose />
         </el-icon>
       </div>
     </div>
@@ -55,7 +55,7 @@
 
               <div class="p-8-12 border-t-dashed lighter">
                 <div class="mb-8">
-                  <span class="color-secondary"> {{ $t('chat.paragraphSource.question') }}:</span>
+                  <span class="color-secondary"> {{ $t('aiChat.paragraphSource.question') }}:</span>
 
                   {{ data.question || '-' }}
                 </div>
@@ -70,7 +70,7 @@
                     <template v-for="(f, i) in data.document_list" :key="i">
                       <el-card shadow="never" style="--el-card-padding: 8px" class="file cursor">
                         <div class="flex align-center">
-                          <img :src="getImgUrl(f && f?.name)" alt="" width="24"/>
+                          <img :src="getImgUrl(f && f?.name)" alt="" width="24" />
                           <div class="ml-4 ellipsis" :title="f && f?.name">
                             {{ f && f?.name }}
                           </div>
@@ -95,7 +95,7 @@
                   </el-space>
                 </div>
                 <div v-if="data.audio_list?.length > 0">
-                  <p class="mb-8 color-secondary">{{ $t('chat.executionDetails.audioFile') }}:</p>
+                  <p class="mb-8 color-secondary">{{ $t('aiChat.executionDetails.audioFile') }}:</p>
 
                   <el-space wrap>
                     <template v-for="(f, i) in data.audio_list" :key="i">
@@ -130,7 +130,7 @@
                     <template v-for="(f, i) in data.other_list" :key="i">
                       <el-card shadow="never" style="--el-card-padding: 8px" class="file cursor">
                         <div class="flex align-center">
-                          <img :src="getImgUrl(f && f?.name)" alt="" width="24"/>
+                          <img :src="getImgUrl(f && f?.name)" alt="" width="24" />
                           <div class="ml-4 ellipsis" :title="f && f?.name">
                             {{ f && f?.name }}
                           </div>
@@ -146,13 +146,13 @@
           <template v-if="data.type == WorkflowType.SearchKnowledge">
             <div class="card-never border-r-6">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.searchContent') }}
+                {{ $t('aiChat.executionDetails.searchContent') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">{{ data.question || '-' }}</div>
             </div>
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.searchResult') }}
+                {{ $t('aiChat.executionDetails.searchResult') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <template v-if="data.paragraph_list?.length > 0">
@@ -179,7 +179,7 @@
           <template v-if="data.type == WorkflowType.Condition">
             <div class="card-never border-r-6">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.conditionResult') }}
+                {{ $t('aiChat.executionDetails.conditionResult') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 {{ data.branch_name || '-' }}
@@ -187,8 +187,7 @@
             </div>
           </template>
           <!-- AI 对话 -->
-          <template
-            v-if="data.type == WorkflowType.AiChat">
+          <template v-if="data.type == WorkflowType.AiChat">
             <div class="card-never border-r-6">
               <h5 class="p-8-12">
                 {{ $t('views.application.form.roleSettings.label') }}
@@ -198,7 +197,7 @@
               </div>
             </div>
             <div class="card-never border-r-6 mt-8" v-if="!isKnowLedge">
-              <h5 class="p-8-12">{{ $t('chat.history') }}</h5>
+              <h5 class="p-8-12">{{ $t('aiChat.history') }}</h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <template v-if="data.history_message?.length > 0">
                   <p
@@ -218,11 +217,35 @@
                 {{
                   isKnowLedge
                     ? $t('views.application.form.prompt.label')
-                    : $t('chat.executionDetails.currentChat')
+                    : $t('aiChat.executionDetails.currentChat')
                 }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter pre-wrap">
-                {{ data.question || '-' }}
+                <template v-if="Array.isArray(data.question)">
+                  <div v-for="(item, qIndex) in data.question" :key="qIndex">
+                    <el-image
+                      v-if="item.type === 'image_url'"
+                      :src="item.image_url?.url || item.image_url"
+                      alt=""
+                      fit="cover"
+                      style="width: 40px; height: 40px; display: block"
+                      class="border-r-6 mb-8"
+                    />
+                    <video
+                      v-else-if="item.type === 'video_url'"
+                      :src="item.video_url?.url || item.video_url"
+                      style="width: 170px; display: block"
+                      class="border-r-6 mb-8"
+                      autoplay
+                      controls
+                    />
+                    <div v-else-if="item.type === 'text'" class="mb-8">{{ item.text }}</div>
+                    <div v-else class="mb-8">{{ item }}</div>
+                  </div>
+                </template>
+                <template v-else>
+                  {{ data.question || '-' }}
+                </template>
               </div>
             </div>
             <div class="card-never border-r-6 mt-8">
@@ -235,7 +258,7 @@
             </div>
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.answer') }}
+                {{ $t('aiChat.executionDetails.answer') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <MdRenderer v-if="data.answer" :source="data.answer" noImgZoomIn></MdRenderer>
@@ -261,7 +284,7 @@
               </div>
             </div>
             <div class="card-never border-r-6 mt-8" v-if="data.type !== WorkflowType.Application">
-              <h5 class="p-8-12">{{ $t('chat.history') }}</h5>
+              <h5 class="p-8-12">{{ $t('aiChat.history') }}</h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <template v-if="data.history_message?.length > 0">
                   <p
@@ -278,7 +301,7 @@
             </div>
             <div class="card-never border-r-6 mt-8" v-if="data.type !== WorkflowType.Application">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.currentChat') }}
+                {{ $t('aiChat.executionDetails.currentChat') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter pre-wrap">
                 {{ data.question || '-' }}
@@ -289,7 +312,7 @@
                 {{
                   data.type == WorkflowType.Application
                     ? $t('common.param.outputParam')
-                    : $t('chat.executionDetails.answer')
+                    : $t('aiChat.executionDetails.answer')
                 }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
@@ -310,7 +333,7 @@
           <template v-if="data.type === WorkflowType.Reply">
             <div class="card-never border-r-6">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.replyContent') }}
+                {{ $t('aiChat.executionDetails.replyContent') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <el-scrollbar height="150">
@@ -336,7 +359,7 @@
 
                 <el-tooltip
                   effect="dark"
-                  :content="$t('chat.executionDetails.paramOutputTooltip')"
+                  :content="$t('aiChat.executionDetails.paramOutputTooltip')"
                   placement="right"
                 >
                   <AppIcon iconName="app-warning" class="app-warning-icon"></AppIcon>
@@ -374,7 +397,9 @@
               <div class="p-8-12 border-t-dashed lighter">
                 <div class="mb-8">
                   <div v-if="data.audio_list?.length > 0">
-                    <p class="mb-8 color-secondary">{{ $t('chat.executionDetails.audioFile') }}:</p>
+                    <p class="mb-8 color-secondary">
+                      {{ $t('aiChat.executionDetails.audioFile') }}:
+                    </p>
 
                     <el-space wrap>
                       <template v-for="(f, i) in data.audio_list" :key="i">
@@ -423,7 +448,9 @@
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <div class="p-8-12 border-t-dashed lighter">
-                  <p class="mb-8 color-secondary">{{ $t('chat.executionDetails.textContent') }}:</p>
+                  <p class="mb-8 color-secondary">
+                    {{ $t('aiChat.executionDetails.textContent') }}:
+                  </p>
                   <div v-if="data.content">
                     <MdPreview
                       ref="editorRef"
@@ -441,7 +468,7 @@
                 {{ $t('common.param.outputParam') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
-                <p class="mb-8 color-secondary">{{ $t('chat.executionDetails.audioFile') }}:</p>
+                <p class="mb-8 color-secondary">{{ $t('aiChat.executionDetails.audioFile') }}:</p>
                 <div v-if="data.answer" v-html="data.answer"></div>
               </div>
             </div>
@@ -452,13 +479,13 @@
             v-if="data.type === WorkflowType.ToolLib || data.type === WorkflowType.ToolLibCustom"
           >
             <div class="card-never border-r-6 mt-8" v-if="data.index != 0">
-              <h5 class="p-8-12">{{ $t('chat.executionDetails.input') }}</h5>
+              <h5 class="p-8-12">{{ $t('aiChat.executionDetails.input') }}</h5>
               <div class="p-8-12 border-t-dashed lighter break-all">
                 {{ data.params || '-' }}
               </div>
             </div>
             <div class="card-never border-r-6 mt-8">
-              <h5 class="p-8-12">{{ $t('chat.executionDetails.output') }}</h5>
+              <h5 class="p-8-12">{{ $t('aiChat.executionDetails.output') }}</h5>
               <div class="p-8-12 border-t-dashed lighter break-all">
                 {{ data.result || '-' }}
               </div>
@@ -468,13 +495,13 @@
           <template v-if="data.type == WorkflowType.RerankerNode">
             <div class="card-never border-r-6">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.searchContent') }}
+                {{ $t('aiChat.executionDetails.searchContent') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">{{ data.question || '-' }}</div>
             </div>
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.rerankerContent') }}
+                {{ $t('aiChat.executionDetails.rerankerContent') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <template v-if="data.document_list?.length > 0">
@@ -494,7 +521,7 @@
             </div>
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.rerankerResult') }}
+                {{ $t('aiChat.executionDetails.rerankerResult') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <template v-if="data.result_list?.length > 0">
@@ -519,10 +546,9 @@
           <template v-if="data.type === WorkflowType.FormNode">
             <div class="card-never border-r-6">
               <h5 class="p-8-12">
-                {{
-                  $t('common.param.outputParam')
+                {{ $t('common.param.outputParam')
                 }}<span style="color: #f54a45">{{
-                  data.is_submit ? '' : `(${$t('chat.executionDetails.noSubmit')})`
+                  data.is_submit ? '' : `(${$t('aiChat.executionDetails.noSubmit')})`
                 }}</span>
               </h5>
 
@@ -551,7 +577,7 @@
               </div>
             </div>
             <div class="card-never border-r-6 mt-8" v-if="!isKnowLedge">
-              <h5 class="p-8-12">{{ $t('chat.history') }}</h5>
+              <h5 class="p-8-12">{{ $t('aiChat.history') }}</h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <template v-if="data.history_message?.length > 0">
                   <p
@@ -572,7 +598,7 @@
                           class="border-r-6 mr-8"
                         />
 
-                        <span v-else>{{ h.text }}<br/></span>
+                        <span v-else>{{ h.text }}<br /></span>
                       </template>
                     </span>
 
@@ -587,7 +613,7 @@
                 {{
                   isKnowLedge
                     ? $t('views.application.form.prompt.label')
-                    : $t('chat.executionDetails.currentChat')
+                    : $t('aiChat.executionDetails.currentChat')
                 }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter pre-wrap">
@@ -595,7 +621,7 @@
                   <el-space wrap>
                     <template v-for="(f, i) in data.image_list" :key="i">
                       <el-image
-                        :src="f.url || f.file_id ? `./oss/file/${f.file_id}` : ''"
+                        :src="f.url || (f.file_id ? `./oss/file/${f.file_id}` : '')"
                         alt=""
                         fit="cover"
                         style="width: 40px; height: 40px; display: block"
@@ -627,7 +653,7 @@
             </div>
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.answer') }}
+                {{ $t('aiChat.executionDetails.answer') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <MdPreview
@@ -653,7 +679,7 @@
               </div>
             </div>
             <div class="card-never border-r-6 mt-8" v-if="!isKnowLedge">
-              <h5 class="p-8-12">{{ $t('chat.history') }}</h5>
+              <h5 class="p-8-12">{{ $t('aiChat.history') }}</h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <template v-if="data.history_message?.length > 0">
                   <p
@@ -672,7 +698,7 @@
                           class="border-r-6 mr-8"
                         />
 
-                        <span v-else>{{ h.text }}<br/></span>
+                        <span v-else>{{ h.text }}<br /></span>
                       </template>
                     </span>
 
@@ -687,7 +713,7 @@
                 {{
                   isKnowLedge
                     ? $t('views.application.form.prompt.label')
-                    : $t('chat.executionDetails.currentChat')
+                    : $t('aiChat.executionDetails.currentChat')
                 }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter pre-wrap">
@@ -727,7 +753,7 @@
             </div>
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.answer') }}
+                {{ $t('aiChat.executionDetails.answer') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <MdPreview
@@ -746,7 +772,7 @@
           <template v-if="data.type == WorkflowType.ImageGenerateNode">
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.currentChat') }}
+                {{ $t('aiChat.executionDetails.currentChat') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter pre-wrap">
                 {{ data.question || '-' }}
@@ -762,7 +788,7 @@
             </div>
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.answer') }}
+                {{ $t('aiChat.executionDetails.answer') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <MdPreview
@@ -780,7 +806,7 @@
           <template v-if="data.type == WorkflowType.TextToVideoGenerateNode">
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.currentChat') }}
+                {{ $t('aiChat.executionDetails.currentChat') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter pre-wrap">
                 {{ data.question || '-' }}
@@ -796,7 +822,7 @@
             </div>
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.answer') }}
+                {{ $t('aiChat.executionDetails.answer') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <MdPreview
@@ -815,7 +841,7 @@
           <template v-if="data.type == WorkflowType.ImageToVideoGenerateNode">
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.currentChat') }}
+                {{ $t('aiChat.executionDetails.currentChat') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter pre-wrap">
                 {{ data.question || '-' }}
@@ -891,7 +917,7 @@
 
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.answer') }}
+                {{ $t('aiChat.executionDetails.answer') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <MdPreview
@@ -1069,7 +1095,7 @@
               <template v-if="data.type === WorkflowType.LoopNode">
                 <el-radio-group v-model="currentLoopNode" class="app-radio-button-group mb-8">
                   <template v-for="(loop, loopIndex) in data.loop_node_data" :key="loopIndex">
-                    <el-radio-button :label="loopIndex" :value="loopIndex"/>
+                    <el-radio-button :label="loopIndex" :value="loopIndex" />
                   </template>
                 </el-radio-group>
                 <template
@@ -1185,13 +1211,13 @@
               <div class="p-8-12 border-t-dashed lighter">
                 <div class="mb-8">
                   <span class="color-secondary"
-                  >{{ $t('chat.executionDetails.paragraphRules') }}:</span
+                    >{{ $t('aiChat.executionDetails.paragraphRules') }}:</span
                   >
                   {{ data.split_strategy }}
                 </div>
                 <div class="mb-8">
                   <span class="color-secondary"
-                  >{{ $t('workflow.nodes.documentSplitNode.chunk_length.label') }}:</span
+                    >{{ $t('workflow.nodes.documentSplitNode.chunk_length.label') }}:</span
                   >
                   {{ data.chunk_size }}
                 </div>
@@ -1205,7 +1231,7 @@
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
                 {{ $t('common.param.outputParam') }}（{{
-                  $t('chat.executionDetails.documentSplitTip')
+                  $t('aiChat.executionDetails.documentSplitTip')
                 }}）
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
@@ -1237,8 +1263,8 @@
           <template v-if="data.type === WorkflowType.KnowledgeWriteNode">
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.writeContent') }}（{{
-                  $t('chat.executionDetails.documentSplitTip')
+                {{ $t('aiChat.executionDetails.writeContent') }}（{{
+                  $t('aiChat.executionDetails.documentSplitTip')
                 }}）
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
@@ -1349,7 +1375,7 @@
             </div>
             <div class="card-never border-r-6 mt-8">
               <h5 class="p-8-12">
-                {{ $t('chat.executionDetails.title') }}
+                {{ $t('aiChat.executionDetails.title') }}
               </h5>
               <div class="p-8-12 border-t-dashed lighter">
                 <template v-for="(cLoop, cIndex) in data.details" :key="cIndex">
@@ -1362,7 +1388,7 @@
         </template>
         <template v-else>
           <div class="card-never border-r-6">
-            <h5 class="p-8-12">{{ $t('chat.executionDetails.errMessage') }}</h5>
+            <h5 class="p-8-12">{{ $t('aiChat.executionDetails.errMessage') }}</h5>
             <div class="p-8-12 border-t-dashed lighter">{{ data.err_message || '-' }}</div>
           </div>
         </template>
@@ -1371,14 +1397,13 @@
   </el-card>
 </template>
 <script setup lang="ts">
-import {ref, computed, type PropType} from 'vue'
-import ParagraphCard
-  from '@/components/ai-chat/component/knowledge-source-component/ParagraphCard.vue'
+import { ref, computed, type PropType } from 'vue'
+import ParagraphCard from '@/components/ai-chat/component/knowledge-source-component/ParagraphCard.vue'
 import DynamicsForm from '@/components/dynamics-form/index.vue'
-import {iconComponent} from '@/workflow/icons/utils'
-import {WorkflowType} from '@/enums/application'
-import {getImgUrl} from '@/utils/common'
-import {arraySort} from '@/utils/array'
+import { iconComponent } from '@/workflow/icons/utils'
+import { WorkflowType } from '@/enums/application'
+import { getImgUrl } from '@/utils/common'
+import { arraySort } from '@/utils/array'
 import ExecutionDetailCard from '@/components/execution-detail-card/index.vue'
 import MdRenderer from '@/components/markdown/MdRenderer.vue'
 import { t } from '@/locales'

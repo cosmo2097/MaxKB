@@ -118,7 +118,6 @@ export default {
     classify: {
       aiCapability: 'AI 能力',
       businessLogic: '业务逻辑',
-      other: '其他',
       dataProcessing: '数据处理',
     },
     startNode: {
@@ -129,8 +128,8 @@ export default {
     baseNode: {
       visibilitySetting: {
         label: '显隐设置',
-        showCondition‌: '显示条件',
-        hideCondition‌: '隐藏条件',
+        showCondition: '显示条件',
+        hideCondition: '隐藏条件',
       },
       fileUpload: {
         label: '文件上传',
@@ -158,6 +157,9 @@ export default {
       label: 'AI 对话',
       text: '与 AI 大模型进行对话',
       answer: 'AI 回答内容',
+      vision: {
+        label: '视觉',
+      },
       returnContent: {
         label: '返回内容',
         tooltip: `关闭后该节点的内容则不输出给用户。
@@ -443,7 +445,6 @@ export default {
     intentNode: {
       label: '意图识别',
       text: '将用户问题与用户预设的意图分类进行匹配',
-      other: '其他',
       error2: '意图重复',
       placeholder: '请选择分类项',
       classify: {

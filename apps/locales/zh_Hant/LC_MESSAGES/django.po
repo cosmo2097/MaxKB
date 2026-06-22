@@ -9469,3 +9469,36 @@ msgstr "對話使用者類型"
 
 msgid "Asker user information"
 msgstr "提問使用者資訊"
+
+msgid "Termbase"
+msgstr "詞庫"
+
+msgid "Copy"
+msgstr "複製"
+
+msgid "ranking"
+msgstr "排名"
+
+msgid "Token consumption"
+msgstr "Token消耗"
+
+msgid "proportion"
+msgstr "占比"
+
+msgid "number of questions"
+msgstr "提問次數"
+
+msgid "active users"
+msgstr "活躍用戶數"
+
+msgid "Average tokens per request"
+msgstr "單次請求平均Token數"
+
+msgid "Average Number of Conversation Turns per Person"
+msgstr "人均對話輪次"
+
+msgid "User Name"
+msgstr "用戶名稱"
+
+msgid "New chat"
+msgstr "已生成新對話，請重新提問！"

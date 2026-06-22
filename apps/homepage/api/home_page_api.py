@@ -15,7 +15,43 @@ from drf_spectacular.utils import (
 )
 from rest_framework import serializers
 
+from application.api.application_stats import ApplicationStatsResult
 from common.mixins.api_mixin import APIMixin
+
+
+class ApplicationMonitoringAPI(APIMixin):
+    @staticmethod
+    def get_parameters():
+        return [OpenApiParameter(
+            name="workspace_id",
+            description="工作空间id",
+            type=OpenApiTypes.STR,
+            location='path',
+            required=True,
+        ),
+            OpenApiParameter(
+                name="application_id",
+                description="application ID",
+                type=OpenApiTypes.STR,
+                required=False,
+            ),
+            OpenApiParameter(
+                name="start_time",
+                description="start Time",
+                type=OpenApiTypes.STR,
+                required=True,
+            ),
+            OpenApiParameter(
+                name="end_time",
+                description="end Time",
+                type=OpenApiTypes.STR,
+                required=True,
+            ),
+        ]
+
+    @staticmethod
+    def get_response():
+        return ApplicationStatsResult
 
 
 class RankingBaseAPI(APIMixin):
@@ -35,6 +71,24 @@ class RankingBaseAPI(APIMixin):
                 description=_("Workspace ID"),
             ),
             OpenApiParameter(
+                name="start_time",
+                description="start Time",
+                type=OpenApiTypes.STR,
+                required=True,
+            ),
+            OpenApiParameter(
+                name="name",
+                description="Name",
+                type=OpenApiTypes.STR,
+                required=False,
+            ),
+            OpenApiParameter(
+                name="end_time",
+                description="end Time",
+                type=OpenApiTypes.STR,
+                required=True,
+            ),
+            OpenApiParameter(
                 name="current_page",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
@@ -47,6 +101,43 @@ class RankingBaseAPI(APIMixin):
                 location=OpenApiParameter.PATH,
                 required=True,
                 description=_("Page size"),
+            ),
+        ]
+
+
+class RankingBaseExportAPI(APIMixin):
+
+    @staticmethod
+    def get_request():
+        return None
+
+    @staticmethod
+    def get_parameters():
+        return [
+            OpenApiParameter(
+                name="workspace_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description=_("Workspace ID"),
+            ),
+            OpenApiParameter(
+                name="start_time",
+                description="start Time",
+                type=OpenApiTypes.STR,
+                required=True,
+            ),
+            OpenApiParameter(
+                name="name",
+                description="Name",
+                type=OpenApiTypes.STR,
+                required=False,
+            ),
+            OpenApiParameter(
+                name="end_time",
+                description="end Time",
+                type=OpenApiTypes.STR,
+                required=True,
             ),
         ]
 
@@ -174,6 +265,32 @@ class ApplicationAggregationAPI(APIMixin):
         ]
 
 
+class TokensAggregationAPI(APIMixin):
+    @staticmethod
+    def get_parameters():
+        return [
+            OpenApiParameter(
+                name="workspace_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description=_("Workspace ID"),
+            ),
+            OpenApiParameter(
+                name="start_time",
+                description="start Time",
+                type=OpenApiTypes.STR,
+                required=True,
+            ),
+            OpenApiParameter(
+                name="end_time",
+                description="end Time",
+                type=OpenApiTypes.STR,
+                required=True,
+            ),
+        ]
+
+
 class KnowledgeAggregationAPI(APIMixin):
 
     @staticmethod
@@ -246,6 +363,7 @@ class ToolAggregationAPI(APIMixin):
                 description=_("Workspace ID"),
             ),
         ]
+
 
 class ModelAggregationAPI(APIMixin):
 

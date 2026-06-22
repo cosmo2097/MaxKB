@@ -14,13 +14,14 @@ const {
   params: { folderId }, // id为knowledgeID
   query: { from },
 } = route as any
+
 const isShared = computed(() => {
   return (
     (folderId === 'shared' ||
       from === 'systemShare' ||
       from === 'systemManage' ||
       route.path.includes('resource-management')) &&
-    route.fullPath != '/application'
+    route.fullPath != '/home'
   )
 })
 </script>

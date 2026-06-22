@@ -25,7 +25,7 @@ class LocaleManager:
         Args:
             external_locale_path: 外置语言包路径，默认从配置读取
         """
-        from apps.maxkb.const import CONFIG, PROJECT_DIR
+        from maxkb.const import CONFIG, PROJECT_DIR
 
         self.PROJECT_DIR = PROJECT_DIR
         self.external_locale_path = external_locale_path or CONFIG.get(
@@ -223,7 +223,14 @@ class LocaleManager:
         """编译 PO 文件为 MO 文件"""
         mo_file = po_file[:-3] + ".mo"
         os.makedirs(os.path.dirname(mo_file), exist_ok=True)
-        subprocess.run(["msgfmt", po_file, "-o", mo_file], check=True)
+
+        try:
+            subprocess.run(["msgfmt", po_file, "-o", mo_file], check=True)
+        except FileNotFoundError:
+            import polib
+            po = polib.pofile(po_file)
+            po.save_as_mofile(mo_file)
+            logger.info(f"Compiled {po_file} to {mo_file} using polib")
 
     @staticmethod
     def _reload_django_mo(lang_code: str = None):

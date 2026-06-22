@@ -4,6 +4,7 @@
       :max-height="tableHeight"
       v-bind="$attrs"
       ref="appTableRef"
+      @header-dragend="handleHeaderDragend"
       :tooltip-options="{
         popperClass: 'max-w-350',
       }"
@@ -22,12 +23,12 @@
             clearable
           />
 
-          <el-button type="primary" @click="submitHandle" :disabled="loading">{{
-            $t('common.create')
-          }}</el-button>
-          <el-button @click="showInput = false" :disabled="loading">{{
-            $t('common.cancel')
-          }}</el-button>
+          <el-button type="primary" @click="submitHandle" :disabled="loading"
+            >{{ $t('common.create') }}
+          </el-button>
+          <el-button @click="showInput = false" :disabled="loading"
+            >{{ $t('common.cancel') }}
+          </el-button>
         </div>
         <div v-else @click="quickCreateHandle" class="w-full">
           <el-button type="primary" link class="quich-button">
@@ -54,13 +55,17 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, nextTick, watch, computed, onMounted } from 'vue'
+import { ref, nextTick, watch, computed, onMounted, useAttrs } from 'vue'
 import { MsgError } from '@/utils/message'
 import { t } from '@/locales'
+
 defineOptions({ name: 'AppTable' })
 
 import useStore from '@/stores'
+
 const { common } = useStore()
+
+const attrs = useAttrs()
 
 const props = defineProps({
   paginationConfig: {
@@ -73,11 +78,11 @@ const props = defineProps({
   },
   quickCreateName: {
     type: String,
-    default: t('components.quickCreateName'),
+    default: () => t('components.quickCreateName'),
   },
   quickCreatePlaceholder: {
     type: String,
-    default: t('components.quickCreatePlaceholder'),
+    default: () => t('components.quickCreatePlaceholder'),
   },
   quickCreateMaxlength: {
     type: Number,
@@ -134,6 +139,7 @@ function handleSizeChange() {
     common.savePage(props.storeKey, props.paginationConfig)
   }
 }
+
 function handleCurrentChange() {
   emit('changePage')
   if (props.storeKey) {
@@ -144,12 +150,87 @@ function handleCurrentChange() {
 function clearSelection() {
   appTableRef.value?.clearSelection()
 }
+
+/* ----------------- 列宽拖拽持久化 ----------------- */
+const COLUMN_WIDTH_PREFIX = 'app-table-column-width:'
+
+function widthStorageKey() {
+  return `${COLUMN_WIDTH_PREFIX}${props.storeKey}`
+}
+
+function loadWidthMap(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(widthStorageKey()) || '{}')
+  } catch {
+    return {}
+  }
+}
+
+function saveWidthMap(map: Record<string, number>) {
+  try {
+    localStorage.setItem(widthStorageKey(), JSON.stringify(map))
+  } catch {
+    /* ignore quota / serialization errors */
+  }
+}
+
+/**
+ * 列的稳定标识：优先用 prop / column-key，其次回退到渲染顺序下标。
+ */
+function getColumnKey(column: any, index: number) {
+  return column?.property || column?.columnKey || `__col_${index}__`
+}
+
+/**
+ * 拖拽结束后，记录该列的最新宽度
+ */
+function handleHeaderDragend(newWidth: number, _oldWidth: number, column: any) {
+  if (!props.storeKey || !column || !newWidth) {
+    return
+  }
+  const cols = appTableRef.value?.columns || []
+  const index = cols.findIndex((c: any) => c.id === column.id)
+  const key = getColumnKey(column, index)
+  const map = loadWidthMap()
+  map[key] = Math.round(newWidth)
+  saveWidthMap(map)
+}
+
+/**
+ * 表格渲染后，把缓存的列宽应用回去
+ */
+function restoreColumnWidths() {
+  if (!props.storeKey) {
+    return
+  }
+  const map = loadWidthMap()
+  if (!map || !Object.keys(map).length) {
+    return
+  }
+  const table = appTableRef.value
+  const cols = table?.columns || []
+  let changed = false
+  cols.forEach((column: any, index: number) => {
+    const w = map[getColumnKey(column, index)]
+    if (typeof w === 'number' && w > 0 && column.realWidth !== w) {
+      column.width = w
+      column.realWidth = w
+      changed = true
+    }
+  })
+  if (changed) {
+    table?.doLayout?.()
+  }
+}
+
 function toggleRowSelection(row: any, selected?: boolean, ignoreSelectable = true) {
   appTableRef.value?.toggleRowSelection(row, selected, ignoreSelectable)
 }
+
 function getSelectionRows() {
   return appTableRef.value?.getSelectionRows()
 }
+
 defineExpose({
   clearSelection,
   toggleRowSelection,
@@ -163,7 +244,19 @@ onMounted(() => {
       tableHeight.value = window.innerHeight - props.maxTableHeight
     })()
   }
+
+  // 首次渲染后恢复缓存的列宽
+  nextTick(restoreColumnWidths)
 })
+
+// 数据变化（翻页 / 筛选 / 轮询刷新）会重建列，重新应用缓存列宽
+watch(
+  () => attrs.data,
+  () => {
+    nextTick(restoreColumnWidths)
+  },
+)
+
 </script>
 
 <style lang="scss" scoped>
@@ -172,6 +265,7 @@ onMounted(() => {
     display: flex;
     justify-content: flex-end;
   }
+
   .quich-button {
     &:hover {
       color: var(--el-button-text-color);

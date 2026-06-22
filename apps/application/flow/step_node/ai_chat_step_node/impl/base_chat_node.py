@@ -257,7 +257,6 @@ class BaseChatNode(IChatNode):
         if mcp_tool_id:
             mcp_tool_ids = list(set(mcp_tool_ids + [mcp_tool_id]))
         if mcp_source == 'custom' and mcp_servers:
-            ToolExecutor().validate_mcp_transport(mcp_servers)
             mcp_servers_config = json.loads(mcp_servers)
             mcp_servers_config = self.handle_variables(mcp_servers_config)
         elif mcp_tool_ids:
@@ -266,6 +265,9 @@ class BaseChatNode(IChatNode):
                 if mcp_tool and mcp_tool['is_active']:
                     mcp_servers_config = {**mcp_servers_config, **json.loads(mcp_tool['code'])}
                     mcp_servers_config = self.handle_variables(mcp_servers_config)
+        # 校验代码是否包括禁止的关键字
+        ToolExecutor().validate_mcp_transport(json.dumps(mcp_servers_config))
+
         tool_init_params = {}
         tools = get_tools(self.workflow_manage.get_source_type(), self.workflow_manage.get_source_id(), tool_ids,
                           workspace_id)
@@ -391,14 +393,20 @@ class BaseChatNode(IChatNode):
     def generate_prompt_question(self, prompt, model):
         image = self.get_image()
         video = self.get_video()
+        vision = self.is_vision()
         videos = []
         images = []
-        if image:
+        if image and vision:
             images = self._process_images(image)
-        if video:
+        if video and vision:
             videos = self._process_videos(video, model)
         return HumanMessage(
             content=[*videos, *images, {'type': 'text', 'text': self.workflow_manage.generate_prompt(prompt)}])
+
+    def is_vision(self):
+        if 'vision' in self.node_params_serializer.data:
+            return self.node_params_serializer.data.get('vision')
+        return False
 
     def get_image(self):
         if 'image_list' in self.node_params_serializer.data:

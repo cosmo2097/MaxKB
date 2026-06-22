@@ -7,22 +7,87 @@
       height: firsUserInput ? '100%' : undefined,
     }"
   >
-    <div
-      v-show="showUserInputContent"
-      :class="firsUserInput ? 'firstUserInput' : 'popperUserInput'"
-    >
+    <div v-if="showUserInputContent && firsUserInput" class="firstUserInput">
       <UserForm
         v-model:api_form_data="api_form_data"
         v-model:form_data="form_data"
+        :excludeFields="inlineExposedFields"
+        :title="
+          applicationDetails?.work_flow?.nodes?.find((v: any) => v.id === 'base-node')?.properties
+            ?.user_input_field_list_setting?.menu_title ||
+          applicationDetails?.work_flow?.nodes?.find((v: any) => v.id === 'base-node')?.properties
+            ?.user_input_config?.title
+        "
         :application="applicationDetails"
         :type="type"
         :first="firsUserInput"
         @confirm="UserFormConfirm"
         @cancel="UserFormCancel"
         ref="userFormRef"
-      >
-      </UserForm>
+      />
     </div>
+    <div v-if="!firsUserInput && isNarrow" v-show="showUserInputContent" class="popperUserInput">
+      <UserForm
+        v-model:api_form_data="api_form_data"
+        v-model:form_data="form_data"
+        :excludeFields="inlineExposedFields"
+        :title="
+          applicationDetails?.work_flow?.nodes?.find((v: any) => v.id === 'base-node')?.properties
+            ?.user_input_field_list_setting?.menu_title ||
+          applicationDetails?.work_flow?.nodes?.find((v: any) => v.id === 'base-node')?.properties
+            ?.user_input_config?.title
+        "
+        :application="applicationDetails"
+        :type="type"
+        :first="firsUserInput"
+        @confirm="UserFormConfirm"
+        @cancel="UserFormCancel"
+        ref="userFormRef"
+      />
+    </div>
+    <el-popover
+      v-if="!firsUserInput && !isNarrow"
+      :visible="showUserInput"
+      @update:visible="
+        (v: boolean) => {
+          if (v) showUserInput = true
+        }
+      "
+      :virtual-ref="triggerEl"
+      virtual-triggering
+      trigger="manual"
+      placement="top-start"
+      :width="400"
+      :show-arrow="false"
+      popper-class="bare-popper"
+      :popper-options="{
+        modifiers: [{ name: 'offset', options: { offset: [-24, -8] } }],
+      }"
+      :popper-style="{
+        background: 'transparent',
+        border: 'none',
+        padding: '0',
+        boxShadow: 'none',
+      }"
+    >
+      <UserForm
+        v-model:api_form_data="api_form_data"
+        v-model:form_data="form_data"
+        :excludeFields="inlineExposedFields"
+        :title="
+          applicationDetails?.work_flow?.nodes?.find((v: any) => v.id === 'base-node')?.properties
+            ?.user_input_field_list_setting?.menu_title ||
+          applicationDetails?.work_flow?.nodes?.find((v: any) => v.id === 'base-node')?.properties
+            ?.user_input_config?.title
+        "
+        :application="applicationDetails"
+        :type="type"
+        :first="firsUserInput"
+        @confirm="UserFormConfirm"
+        @cancel="UserFormCancel"
+        ref="userFormRef"
+      />
+    </el-popover>
     <template v-if="!(isUserInput || isAPIInput) || !firsUserInput || type === 'log'">
       <el-scrollbar ref="scrollDiv" @scroll="handleScrollTop">
         <div
@@ -75,7 +140,7 @@
                   <!-- 回答 -->
                   <AnswerContent
                     :application="applicationDetails"
-                    :loading="loading"
+                    :loading="currentChatGenerating"
                     v-model:chat-record="chatList[index]"
                     :type="type"
                     :send-message="sendMessage"
@@ -94,7 +159,7 @@
           </el-checkbox-group>
           <TransitionContent
             v-if="transcribing"
-            :text="t('chat.inputPlaceholder.recorderLoading')"
+            :text="t('aiChat.inputPlaceholder.recorderLoading')"
             :type="type"
             :application="applicationDetails"
           >
@@ -122,7 +187,7 @@
                 @click="shareChatHandle"
                 :disabled="shareLoading || multipleSelectionChat.length === 0"
               >
-                {{ $t('chat.copyLinkText') }}
+                {{ $t('aiChat.copyLinkText') }}
               </el-button>
             </div>
           </div>
@@ -137,21 +202,19 @@
           :validate="validate"
           :chat-management="ChatManagement"
           v-model:chat-id="chartOpenId"
-          v-model:loading="loading"
+          :loading="currentChatGenerating"
           v-model:show-user-input="showUserInput"
           v-else-if="type !== 'log' && type !== 'share'"
         >
-          <template #userInput>
-            <el-button
-              v-if="isUserInput || isAPIInput"
-              class="user-input-button mb-8"
-              @click="toggleUserInput"
+          <template #inlineParams>
+            <InlineParams
+              ref="inlineParamsRef"
+              :application="applicationDetails"
+              :maxExposed="maxExposed"
+              v-model:form-data="form_data"
+              @openDialog="handleOpenDialog"
             >
-              <AppIcon iconName="app-edit" :size="16" class="mr-4"></AppIcon>
-              <span class="ellipsis">
-                {{ userInputTitle || $t('chat.userInput') }}
-              </span>
-            </el-button>
+            </InlineParams>
           </template>
         </ChatInputOperate>
       </div>
@@ -182,6 +245,7 @@ import { ChatManagement, type chatType } from '@/api/type/application'
 import { randomId } from '@/utils/common'
 import useStore from '@/stores'
 import { debounce } from 'lodash'
+import { useElementSize } from '@vueuse/core'
 import AnswerContent from '@/components/ai-chat/component/answer-content/index.vue'
 import QuestionContent from '@/components/ai-chat/component/question-content/index.vue'
 import TransitionContent from '@/components/ai-chat/component/transition-content/index.vue'
@@ -196,6 +260,7 @@ import { throttle } from 'lodash-es'
 import { copyClick } from '@/utils/clipboard'
 import { loadSharedApi } from '@/utils/dynamics-api/shared-api'
 import { getWrite } from '@/utils/chat'
+import InlineParams from '@/components/ai-chat/component/inline-params/index.vue'
 
 provide('upload', (file: any, loading?: Ref<boolean>) => {
   return props.type === 'debug-ai-chat'
@@ -245,6 +310,7 @@ const props = withDefaults(
 )
 const emit = defineEmits([
   'refresh',
+  'openChat',
   'scroll',
   'openExecutionDetail',
   'openParagraph',
@@ -252,16 +318,41 @@ const emit = defineEmits([
   'update:selection',
 ])
 const { application, common, chatUser } = useStore()
+
+const aiChatRef = ref()
+const { width: rootWidth } = useElementSize(aiChatRef)
+
 const isMobile = computed(() => {
   return common.isMobile() || mode === 'embed' || mode === 'mobile'
 })
-const aiChatRef = ref()
+
+const isNarrow = computed(() => rootWidth.value > 0 && rootWidth.value < 768)
+
+const maxExposed = computed(() => (isNarrow.value ? 1 : 3))
+const inlineExposedFields = computed<string[]>(() =>
+  (
+    props.applicationDetails?.work_flow?.nodes?.find((v: any) => v.id === 'base-node')?.properties
+      ?.user_input_field_list_setting?.exposed_fields || []
+  ).slice(0, maxExposed.value),
+)
+
+const triggerEl = computed<HTMLElement | undefined>(() => {
+  const btn = inlineParamsRef.value?.triggerBtnRef as any
+  return btn?.$el ?? btn
+})
+
 const scrollDiv = ref()
 const dialogScrollbar = ref()
 const loading = ref(false)
 const inputValue = ref<string>('')
 const chartOpenId = ref<string>('')
 const chatList = ref<any[]>([])
+// 当前正在查看的会话是否有在途消息(还在吐字)。
+// 用它驱动"停止回答"按钮、输入禁用、发送拦截, 替代组件级全局 loading,
+// 这样后台其它会话的流式不会把当前会话的输入栏按住。
+const currentChatGenerating = computed(() =>
+  chatList.value.some((c) => c && c.write_ed === false && c.is_stop !== true),
+)
 const form_data = ref<any>({})
 const api_form_data = ref<any>({})
 const userFormRef = ref<InstanceType<typeof UserForm>>()
@@ -272,6 +363,8 @@ const showUserInput = ref(false)
 // 初始表单数据（用于恢复）
 const initialFormData = ref({})
 const initialApiFormData = ref({})
+
+const inlineParamsRef = ref<InstanceType<typeof InlineParams>>()
 
 const isUserInput = computed(
   () =>
@@ -304,11 +397,6 @@ watch(
       firsUserInput.value = false
     } else {
       chartOpenId.value = ''
-      if (isUserInput.value) {
-        firsUserInput.value = true
-      } else if (props.type == 'debug-ai-chat' && isAPIInput.value) {
-        firsUserInput.value = true
-      }
     }
   },
   { deep: true, immediate: true },
@@ -391,6 +479,12 @@ function toggleSelect(id: number) {
   }
 }
 
+const handleOpenDialog = () => {
+  showUserInput.value = true
+  initialFormData.value = JSON.parse(JSON.stringify(form_data.value))
+  initialApiFormData.value = JSON.parse(JSON.stringify(api_form_data.value))
+}
+
 function cancelCheckHandle() {
   checkAll.value = false
   multipleSelectionChat.value = []
@@ -420,7 +514,7 @@ function UserFormCancel() {
 }
 
 const validate = () => {
-  return userFormRef.value?.validate() || Promise.reject(false)
+  return inlineParamsRef.value?.validate() || Promise.resolve(true)
 }
 
 function sendMessage(val: string, other_params_data?: any, chat?: chatType): Promise<boolean> {
@@ -444,7 +538,7 @@ function sendMessage(val: string, other_params_data?: any, chat?: chatType): Pro
 
           showUserInput.value = false
 
-          if (!loading.value && props.applicationDetails?.name) {
+          if (!currentChatGenerating.value && props.applicationDetails?.name) {
             handleDebounceClick(val, other_params_data, chat)
             return true
           }
@@ -464,7 +558,7 @@ function sendMessage(val: string, other_params_data?: any, chat?: chatType): Pro
     }
   } else {
     showUserInput.value = false
-    if (!loading.value && props.applicationDetails?.name) {
+    if (!currentChatGenerating.value && props.applicationDetails?.name) {
       handleDebounceClick(val, other_params_data, chat)
       return Promise.resolve(true)
     }
@@ -561,13 +655,22 @@ function getChartOpenId(chat?: any, problem?: string, re_chat?: boolean, other_p
   })
 }
 
-
 const errorWrite = (chat: any, message?: string) => {
   ChatManagement.addChatRecord(chat, 50, loading)
   ChatManagement.write(chat.id)
-  ChatManagement.append(chat.id, message || t('chat.tip.error500Message'))
+  ChatManagement.append(chat.id, message || t('aiChat.tip.error500Message'))
   ChatManagement.updateStatus(chat.id, 500)
   ChatManagement.close(chat.id)
+}
+
+// 停止"当前正在查看的会话"里在途的消息。
+// 只动 chatList(当前会话), 不会波及后台其它正在跑的会话。
+const stopGenerating = () => {
+  chatList.value.forEach((c) => {
+    if (c && c.write_ed === false && c.is_stop !== true) {
+      ChatManagement.stop(c.id)
+    }
+  })
 }
 
 // 保存上传文件列表
@@ -580,6 +683,7 @@ function chatMessage(chat?: any, problem?: string, re_chat?: boolean, other_para
       problem_text: problem ? problem : inputValue.value.trim(),
       answer_text: '',
       answer_text_list: [[]],
+      currentNodeName: '',
       buffer: [],
       reasoning_content: '',
       reasoning_content_buffer: [],
@@ -632,14 +736,23 @@ function chatMessage(chat?: any, problem?: string, re_chat?: boolean, other_para
         ...api_form_data.value,
       },
     }
+
+    if (other_params_data && other_params_data.form_data) {
+      obj.form_data = { ...obj.form_data, ...other_params_data.form_data }
+    }
     // 对话
     getChatMessageAPI()(chartOpenId.value, obj)
       .then((response) => {
         if (response.status === 460) {
-          return Promise.reject(t('chat.tip.errorIdentifyMessage'))
+          return Promise.reject(t('aiChat.tip.errorIdentifyMessage'))
         } else if (response.status === 461) {
-          return Promise.reject(t('chat.tip.errorLimitMessage'))
+          return Promise.reject(t('aiChat.tip.errorLimitMessage'))
         } else {
+          // 新建会话: 此刻后端已执行 set_chat 建好 Chat 行(在产出流之前),
+          // 通知父级把新会话加入历史列表, 这样长回答流式期间切走也能切回来继续看
+          if (props.chatId === 'new') {
+            emit('openChat', chartOpenId.value)
+          }
           nextTick(() => {
             // 将滚动条滚动到最下面
             scrollDiv.value.setScrollTop(getMaxHeight())
@@ -816,11 +929,13 @@ onMounted(() => {
     checkAll.value = multipleSelectionChat.value.length === chatList.value.length
     emit('update:selection', true)
   })
+  bus.on('chat:stop', stopGenerating)
 })
 
 onBeforeUnmount(() => {
   window.sendMessage = null
   window.chatUserProfile = null
+  bus.off('chat:stop', stopGenerating)
 })
 
 function setScrollBottom() {
