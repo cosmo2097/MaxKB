@@ -35,7 +35,7 @@ class BaseDocumentExtractNode(IDocumentExtractNode):
             knowledge_id = self.workflow_params.get('knowledge_id')
         elif [WorkflowMode.APPLICATION, WorkflowMode.APPLICATION_LOOP].__contains__(
                 self.workflow_manage.flow.workflow_mode):
-            application_id = self.workflow_manage.work_flow_post_handler.chat_info.application.id
+            application_id = self.workflow_manage.work_flow_post_handler.chat_info.application_id
         elif [WorkflowMode.TOOL, WorkflowMode.TOOL_LOOP].__contains__(self.workflow_manage.flow.workflow_mode):
             tool_id = self.workflow_params.get('tool_id')
 
@@ -55,8 +55,8 @@ class BaseDocumentExtractNode(IDocumentExtractNode):
                     id=meta['file_id'],
                     file_name=image.file_name,
                     file_size=len(file_bytes),
-                    source_type=FileSourceType.APPLICATION.value if application_id else FileSourceType.KNOWLEDGE.value if knowledge_id else FileSourceType.APPLICATION.value,
-                    source_id=application_id or tool_id or knowledge_id,
+                    source_type=FileSourceType.APPLICATION.value if application_id else FileSourceType.KNOWLEDGE.value if knowledge_id else FileSourceType.TOOL.value,
+                    source_id=application_id or knowledge_id or tool_id,
                     meta=meta
                 )
                 if not QuerySet(File).filter(id=new_file.id).exists():

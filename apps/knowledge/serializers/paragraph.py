@@ -48,6 +48,13 @@ from knowledge.task.embedding import (
 from knowledge.task.generate import generate_related_by_paragraph_id_list
 
 
+class NullCharacterStrippedCharField(serializers.CharField):
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            data = data.replace("\x00", "")
+        return super().to_internal_value(data)
+
+
 class ParagraphSerializer(serializers.ModelSerializer):
     class Meta:
         model = Paragraph
@@ -59,10 +66,10 @@ class ParagraphInstanceSerializer(serializers.Serializer):
     段落实例对象
     """
 
-    content = serializers.CharField(
+    content = NullCharacterStrippedCharField(
         required=True, label=_("content"), max_length=102400, min_length=1, allow_null=True, allow_blank=True
     )
-    title = serializers.CharField(
+    title = NullCharacterStrippedCharField(
         required=False, max_length=256, label=_("section title"), allow_null=True, allow_blank=True
     )
     problem_list = ProblemInstanceSerializer(required=False, many=True)
@@ -70,10 +77,10 @@ class ParagraphInstanceSerializer(serializers.Serializer):
 
 
 class EditParagraphSerializers(serializers.Serializer):
-    title = serializers.CharField(
+    title = NullCharacterStrippedCharField(
         required=False, max_length=256, label=_("section title"), allow_null=True, allow_blank=True
     )
-    content = serializers.CharField(
+    content = NullCharacterStrippedCharField(
         required=False, max_length=102400, allow_null=True, allow_blank=True, label=_("section title")
     )
     problem_list = ProblemInstanceSerializer(required=False, many=True)
@@ -91,10 +98,10 @@ class ParagraphBatchGenerateRelatedSerializer(serializers.Serializer):
 
 
 class ParagraphSerializers(serializers.Serializer):
-    title = serializers.CharField(
+    title = NullCharacterStrippedCharField(
         required=False, max_length=256, label=_("section title"), allow_null=True, allow_blank=True
     )
-    content = serializers.CharField(required=True, max_length=102400, label=_("section title"))
+    content = NullCharacterStrippedCharField(required=True, max_length=102400, label=_("section title"))
 
     class Problem(serializers.Serializer):
         workspace_id = serializers.CharField(required=True, label=_("workspace id"))
@@ -110,7 +117,15 @@ class ParagraphSerializers(serializers.Serializer):
                 query_set = query_set.filter(workspace_id=workspace_id)
             if not query_set.exists():
                 raise AppApiException(500, _("Knowledge id does not exist"))
-            if not QuerySet(Paragraph).filter(id=self.data.get("paragraph_id")).exists():
+            if (
+                not QuerySet(Paragraph)
+                .filter(
+                    id=self.data.get("paragraph_id"),
+                    document_id=self.data.get("document_id"),
+                    knowledge_id=self.data.get("knowledge_id"),
+                )
+                .exists()
+            ):
                 raise AppApiException(500, _("Paragraph id does not exist"))
 
         def list(self, with_valid=False):
@@ -202,7 +217,15 @@ class ParagraphSerializers(serializers.Serializer):
                 query_set = query_set.filter(workspace_id=workspace_id)
             if not query_set.exists():
                 raise AppApiException(500, _("Knowledge id does not exist"))
-            if not QuerySet(Paragraph).filter(id=self.data.get("paragraph_id")).exists():
+            if (
+                not QuerySet(Paragraph)
+                .filter(
+                    id=self.data.get("paragraph_id"),
+                    document_id=self.data.get("document_id"),
+                    knowledge_id=self.data.get("knowledge_id"),
+                )
+                .exists()
+            ):
                 raise AppApiException(500, _("Paragraph id does not exist"))
 
         @staticmethod
@@ -786,19 +809,23 @@ class ParagraphSerializers(serializers.Serializer):
             except (TypeError, ValueError):
                 raise serializers.ValidationError(_("new_position must be an integer"))
             # 获取当前段落
-            paragraph = Paragraph.objects.get(id=self.data.get("paragraph_id"))
+            paragraph = Paragraph.objects.get(
+                id=self.data.get("paragraph_id"),
+                knowledge_id=self.data.get("knowledge_id"),
+                document_id=self.data.get("document_id")
+            )
             old_position = paragraph.position
 
             if old_position < new_position:
                 # 如果新顺序在当前顺序之后，更新受影响段落的顺序
-                Paragraph.objects.filter(position__gt=old_position, position__lte=new_position).update(
-                    position=F("position") - 1
-                )
+                Paragraph.objects.filter(
+                    position__gt=old_position, position__lte=new_position, document_id=paragraph.document_id
+                ).update(position=F("position") - 1)
             elif old_position > new_position:
                 # 如果新顺序在当前顺序之前，更新受影响段落的顺序
-                Paragraph.objects.filter(position__lt=old_position, position__gte=new_position).update(
-                    position=F("position") + 1
-                )
+                Paragraph.objects.filter(
+                    position__lt=old_position, position__gte=new_position, document_id=paragraph.document_id
+                ).update(position=F("position") + 1)
 
             # 更新当前段落的顺序
             paragraph.position = new_position

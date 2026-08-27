@@ -435,6 +435,7 @@ const props = withDefaults(
 )
 const emit = defineEmits(['update:chatId', 'update:loading', 'update:showUserInput', 'backBottom'])
 const chartOpenId = ref<string>()
+let chatIdPromise: Promise<string> | null = null
 const chatId_context = computed({
   get: () => {
     if (chartOpenId.value) {
@@ -530,17 +531,14 @@ const uploadFile = async (file: any, fileList: any) => {
     fileList.splice(0, fileList.length, ...fileList.slice(0, maxFiles))
     return
   }
-  if (fileList.filter((f: any) => f.size == 0).length > 0) {
-    // MB
+  if (file.size == 0) {
     MsgWarning(t('aiChat.uploadFile.sizeLimit2'))
-    // 空文件上传过滤
     fileList.splice(0, fileList.length, ...fileList.filter((f: any) => f.size > 0))
     return
   }
-  if (fileList.filter((f: any) => f.size > fileLimit * 1024 * 1024).length > 0) {
+  if (file.size > fileLimit * 1024 * 1024) {
     // MB
     MsgWarning(t('aiChat.uploadFile.sizeLimit') + fileLimit + 'MB')
-    // 只保留未超出大小限制的文件
     fileList.splice(
       0,
       fileList.length,
@@ -552,7 +550,12 @@ const uploadFile = async (file: any, fileList: any) => {
   const inner = reactive(file)
   fileAllList.value.push(inner)
   if (!chatId_context.value) {
-    chatId_context.value = await props.openChatId()
+    if (!chatIdPromise) {
+      chatIdPromise = props.openChatId().finally(() => {
+        chatIdPromise = null
+      })
+    }
+    chatId_context.value = await chatIdPromise
   }
   const api =
     props.type === 'debug-ai-chat'
